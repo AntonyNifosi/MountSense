@@ -317,6 +317,21 @@ function UI:CreateDropdown(parent, width, items, onChange)
         self.menu:SetHeight(totalH + 4)
     end
 
+    function dd:SetValue(value, silent)
+        self.selectedValue = value
+        if self.items then
+            for _, item in ipairs(self.items) do
+                if tostring(item.value) == tostring(value) then
+                    self.label:SetText(item.text)
+                    if not silent and onChange then
+                        onChange(item.value, item.text)
+                    end
+                    return
+                end
+            end
+        end
+    end
+
     dd:SetScript("OnClick", function(self)
         if self.menu:IsShown() then
             self.menu:Hide()
@@ -389,7 +404,9 @@ StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
     hasEditBox = true,
     editBoxWidth = 200,
     OnAccept = function(self)
-        local name = self.editBox:GetText():trim()
+        local editBox = _G[self:GetName().."EditBox"] or self.editBox
+        local text = editBox and editBox:GetText() or ""
+        local name = strtrim(text)
         if name ~= "" then
             local id = addon.Data:CreateList(name)
             addon:Print("List \"" .. name .. "\" created!")
@@ -400,12 +417,15 @@ StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
         end
     end,
     OnShow = function(self)
-        self.editBox:SetText("")
-        self.editBox:SetFocus()
+        local editBox = _G[self:GetName().."EditBox"] or self.editBox
+        if editBox then
+            editBox:SetText("")
+            editBox:SetFocus()
+        end
     end,
     EditBoxOnEnterPressed = function(self)
-        local parent = self:GetParent()
-        local name = parent.editBox:GetText():trim()
+        local text = self:GetText() or ""
+        local name = strtrim(text)
         if name ~= "" then
             local id = addon.Data:CreateList(name)
             addon:Print("List \"" .. name .. "\" created!")
@@ -414,7 +434,7 @@ StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
                 addon.Editor:SelectList(id)
             end
         end
-        parent:Hide()
+        self:GetParent():Hide()
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -422,7 +442,6 @@ StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
 }
 
 StaticPopupDialogs["MOUNTLIST_DELETE_LIST"] = {
@@ -436,13 +455,14 @@ StaticPopupDialogs["MOUNTLIST_DELETE_LIST"] = {
             addon.Editor.selectedListID = nil
             addon.Editor:Refresh()
         end
-        addon.Summon:UpdateMount()
+        if addon.Summon then
+            addon.Summon:UpdateMount()
+        end
     end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
     showAlert = true,
-    preferredIndex = 3,
 }
 
 StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
@@ -452,7 +472,9 @@ StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
     hasEditBox = true,
     editBoxWidth = 200,
     OnAccept = function(self, listID)
-        local name = self.editBox:GetText():trim()
+        local editBox = _G[self:GetName().."EditBox"] or self.editBox
+        local text = editBox and editBox:GetText() or ""
+        local name = strtrim(text)
         if name ~= "" then
             addon.Data:RenameList(listID, name)
             if addon.Editor and addon.Editor.Refresh then
@@ -461,23 +483,25 @@ StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
         end
     end,
     OnShow = function(self, listID)
+        local editBox = _G[self:GetName().."EditBox"] or self.editBox
         local list = addon.Data:GetList(listID)
-        if list then
-            self.editBox:SetText(list.name)
-            self.editBox:HighlightText()
+        if editBox and list then
+            editBox:SetText(list.name)
+            editBox:HighlightText()
+            editBox:SetFocus()
         end
-        self.editBox:SetFocus()
     end,
     EditBoxOnEnterPressed = function(self)
-        local parent = self:GetParent()
-        local name = parent.editBox:GetText():trim()
+        local text = self:GetText() or ""
+        local name = strtrim(text)
         if name ~= "" then
-            addon.Data:RenameList(parent.data, name)
+            local dialog = self:GetParent()
+            addon.Data:RenameList(dialog.data, name)
             if addon.Editor and addon.Editor.Refresh then
                 addon.Editor:Refresh()
             end
         end
-        parent:Hide()
+        self:GetParent():Hide()
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -485,7 +509,6 @@ StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
-    preferredIndex = 3,
 }
 
 -------------------------------------------------------------------------------
@@ -505,6 +528,8 @@ function UI:Create()
     f:SetBackdropColor(unpack(self.C.bg))
     f:SetBackdropBorderColor(unpack(self.C.borderAccent))
     f:SetMovable(true)
+    f:SetResizable(true)
+    f:SetResizeBounds(650, 400, 1200, 800)
     f:EnableMouse(true)
     f:SetClampedToScreen(true)
     f:SetFrameStrata("HIGH")
@@ -514,6 +539,20 @@ function UI:Create()
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+    -- Resize handle (bottom-right corner)
+    local resizeBtn = CreateFrame("Button", nil, f)
+    resizeBtn:SetSize(16, 16)
+    resizeBtn:SetPoint("BOTTOMRIGHT", -2, 2)
+    resizeBtn:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    resizeBtn:SetScript("OnMouseDown", function(self)
+        f:StartSizing("BOTTOMRIGHT")
+    end)
+    resizeBtn:SetScript("OnMouseUp", function(self)
+        f:StopMovingOrSizing()
+    end)
 
     -- Close on Escape
     table.insert(UISpecialFrames, "MountListMainFrame")

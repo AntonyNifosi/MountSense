@@ -33,29 +33,27 @@ Data.MOUNT_TYPE_MAP = {
     [284] = "GROUND",
     [398] = "GROUND",
     [412] = "GROUND",
-    -- Flying (steady flight)
+    -- Flying (includes Skyriding — all modern flying mounts)
     [247] = "FLYING",
     [248] = "FLYING",
     [242] = "FLYING",
     [169] = "FLYING",
+    [402] = "FLYING",
+    [424] = "FLYING",
     -- Aquatic / Underwater
     [231] = "AQUATIC",
     [232] = "AQUATIC",
     [254] = "AQUATIC",
     [407] = "AQUATIC",
-    -- Skyriding / Dragonriding
-    [402] = "SKYRIDING",
-    [424] = "SKYRIDING",
 }
 
-Data.MOUNT_CATEGORIES = { "ALL", "GROUND", "FLYING", "AQUATIC", "SKYRIDING", "OTHER" }
+Data.MOUNT_CATEGORIES = { "ALL", "GROUND", "FLYING", "AQUATIC", "OTHER" }
 
 Data.MOUNT_TYPE_LABELS = {
     ALL      = "All",
     GROUND   = "Ground",
     FLYING   = "Flying",
     AQUATIC  = "Aquatic",
-    SKYRIDING = "Skyriding",
     OTHER    = "Other",
 }
 
@@ -64,7 +62,6 @@ Data.MOUNT_TYPE_ICONS = {
     GROUND   = "Interface\\Icons\\Spell_Nature_Swiftness",
     FLYING   = "Interface\\Icons\\Ability_Mount_FlyingMachine",
     AQUATIC  = "Interface\\Icons\\INV_Misc_Fish_35",
-    SKYRIDING = "Interface\\Icons\\UI_DragonRiding_Icon",
     OTHER    = "Interface\\Icons\\INV_Misc_QuestionMark",
 }
 

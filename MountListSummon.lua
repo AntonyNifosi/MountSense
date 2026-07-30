@@ -27,13 +27,13 @@ function Summon:CreateButton()
                  pos.x or 0, pos.y or -200)
 
     -- Secure attributes
-    btn:SetAttribute("type", "macro")
-    btn:SetAttribute("macrotext", "/run C_MountJournal.SummonByID(0)")
+    btn:SetAttribute("type1", "macro")
+    btn:SetAttribute("macrotext1", "/run C_MountJournal.SummonByID(0)")
 
     btn:SetMovable(true)
     btn:EnableMouse(true)
     btn:RegisterForDrag("LeftButton")
-    btn:RegisterForClicks("AnyUp")
+    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     ---------------------------------------------------------------------------
     -- Visuals
@@ -80,9 +80,34 @@ function Summon:CreateButton()
     ---------------------------------------------------------------------------
     -- Scripts
     ---------------------------------------------------------------------------
+    local macroName = "MountList"
+    local function EnsureAndPickupMacro()
+        if InCombatLockdown() then
+            addon:Print("Cannot create macro during combat.")
+            return
+        end
+        local name, _, body = GetMacroInfo(macroName)
+        local desiredBody = "/ml summon"
+        if not name then
+            local numGlobal, numChar = GetNumMacros()
+            if numGlobal < 120 then
+                CreateMacro(macroName, 413588, desiredBody, false)
+            else
+                addon:Print("Macro limit reached! Please delete a macro first, or create one manually with '/ml summon'.")
+                return
+            end
+        elseif body ~= desiredBody then
+            EditMacro(name, macroName, 413588, desiredBody)
+        end
+        PickupMacro(macroName)
+    end
+
     btn:SetScript("OnDragStart", function(self)
         if IsAltKeyDown() and not InCombatLockdown() then
             self:StartMoving()
+        else
+            -- Allow user to drag the macro to action bars!
+            EnsureAndPickupMacro()
         end
     end)
 
@@ -97,8 +122,9 @@ function Summon:CreateButton()
     btn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("|cffFFB800MountList|r", 1, 1, 1)
-        GameTooltip:AddLine("Click to summon a random mount", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("Alt+Drag to move", 0.55, 0.55, 0.6)
+        GameTooltip:AddLine("Left Click to summon a random mount", 0.9, 0.9, 0.9)
+        GameTooltip:AddLine("Drag to action bar to place macro", 0.0, 1.0, 0.5)
+        GameTooltip:AddLine("Alt+Drag to move this button", 0.55, 0.55, 0.6)
         if Summon.lastMountID then
             local data = addon.Data:GetMountData(Summon.lastMountID)
             if data then
@@ -179,7 +205,7 @@ function Summon:PickRandomMount()
     -- If still empty, fallback to SummonByID(0) = random favorite
     if #allMounts == 0 then
         if self.button then
-            self.button:SetAttribute("macrotext", "/run C_MountJournal.SummonByID(0)")
+            self.button:SetAttribute("macrotext1", "/run C_MountJournal.SummonByID(0)")
             self.button.icon:SetTexture("Interface\\Icons\\Ability_Mount_RidingHorse")
         end
         self.lastMountID = nil
@@ -190,7 +216,7 @@ function Summon:PickRandomMount()
     self.lastMountID = mountID
 
     if self.button then
-        self.button:SetAttribute("macrotext",
+        self.button:SetAttribute("macrotext1",
             "/run C_MountJournal.SummonByID(" .. mountID .. ")")
         local data = addon.Data:GetMountData(mountID)
         if data then

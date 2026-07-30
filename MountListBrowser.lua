@@ -283,6 +283,7 @@ function Browser:Create(parent)
     -- Add to list dropdown
     local listDD = addon.UI:CreateDropdown(selBar, 180, {}, function(value)
         Browser.targetListID = value
+        Browser:UpdateCards()
     end)
     listDD:SetPoint("RIGHT", -120, 0)
     self.listDD = listDD
@@ -358,9 +359,13 @@ function Browser:RefreshListDropdown()
         items[#items + 1] = { text = "No lists created", value = nil }
     end
     self.listDD:SetItems(items)
-    if #sortedLists > 0 and not self.targetListID then
+    
+    if not self.targetListID and #sortedLists > 0 then
         self.targetListID = sortedLists[1].id
-        self.listDD:SetValue(self.targetListID)
+    end
+    
+    if self.targetListID then
+        self.listDD:SetValue(self.targetListID, true)
     end
 end
 
@@ -464,7 +469,7 @@ function Browser:CreateCard(parent, index)
     selOverlay:Hide()
     card.selOverlay = selOverlay
 
-    -- Checkmark
+    -- Checkmark (for selection)
     local checkmark = card:CreateFontString(nil, "OVERLAY", nil, 3)
     checkmark:SetFont(addon.UI.FONT, 16, "OUTLINE")
     checkmark:SetPoint("TOPRIGHT", -3, -3)
@@ -472,6 +477,23 @@ function Browser:CreateCard(parent, index)
     checkmark:SetTextColor(0.2, 0.9, 0.4)
     checkmark:Hide()
     card.checkmark = checkmark
+
+    -- "Already in list" indicator
+    local inListGroup = CreateFrame("Frame", nil, card)
+    inListGroup:SetAllPoints(icon)
+    inListGroup:SetFrameLevel(card:GetFrameLevel() + 2)
+    inListGroup:Hide()
+    card.inListBadge = inListGroup
+
+    local inListTint = inListGroup:CreateTexture(nil, "BACKGROUND")
+    inListTint:SetAllPoints()
+    inListTint:SetColorTexture(0.0, 0.8, 0.2, 0.35)
+
+    local inListText = inListGroup:CreateFontString(nil, "OVERLAY")
+    inListText:SetFont(addon.UI.FONT, 10, "OUTLINE")
+    inListText:SetPoint("CENTER", 0, 0)
+    inListText:SetText("IN LIST")
+    inListText:SetTextColor(0.4, 1.0, 0.4)
 
     -- Hover highlight
     local highlight = card:CreateTexture(nil, "HIGHLIGHT")
@@ -527,6 +549,21 @@ end
 
 function Browser:UpdateCardSelection(card)
     if not card.mountID then return end
+
+    -- Check if it's already in the target list
+    card.inListBadge:Hide()
+    if self.targetListID then
+        local targetList = addon.Data:GetList(self.targetListID)
+        if targetList then
+            for _, mID in ipairs(targetList.mounts) do
+                if mID == card.mountID then
+                    card.inListBadge:Show()
+                    break
+                end
+            end
+        end
+    end
+
     if self.selected[card.mountID] then
         card.selOverlay:Show()
         card.checkmark:Show()
@@ -551,6 +588,14 @@ end
 -------------------------------------------------------------------------------
 -- Selection management
 -------------------------------------------------------------------------------
+function Browser:SelectAll()
+    for _, mountData in ipairs(self.currentMounts) do
+        self.selected[mountData.mountID] = true
+    end
+    self:UpdateCards()
+    self:UpdateSelection()
+end
+
 function Browser:UpdateSelection()
     local count = 0
     for _ in pairs(self.selected) do
@@ -590,13 +635,19 @@ function Browser:AddSelectedToList()
     addon.Data:AddMountsToList(listID, mountIDs)
     addon:Print(#mountIDs .. " mount(s) added to \"" .. list.name .. "\"!")
 
+    -- Re-fetch lists and update dropdown
+    self:RefreshListDropdown()
+    self.listDD:SetValue(listID, true)
+
     -- Clear selection
     wipe(self.selected)
     self:UpdateSelection()
     self:UpdateCards()
 
     -- Update summon button
-    addon.Summon:UpdateMount()
+    if addon.Summon then
+        addon.Summon:UpdateMount()
+    end
 end
 
 -------------------------------------------------------------------------------

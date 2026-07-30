@@ -122,7 +122,7 @@ function Editor:Create(parent)
     local nameHeader = CreateFrame("Button", nil, detail)
     nameHeader:SetHeight(30)
     nameHeader:SetPoint("TOPLEFT", 12, -8)
-    nameHeader:SetPoint("TOPRIGHT", -12, -8)
+    nameHeader:SetPoint("TOPRIGHT", -100, -8)
 
     local nameText = nameHeader:CreateFontString(nil, "OVERLAY")
     nameText:SetFont(addon.UI.FONT, 15, "")
@@ -134,7 +134,7 @@ function Editor:Create(parent)
     local editIcon = nameHeader:CreateFontString(nil, "OVERLAY")
     editIcon:SetFont(addon.UI.FONT, 11, "")
     editIcon:SetPoint("LEFT", nameText, "RIGHT", 8, 0)
-    editIcon:SetText("✎")
+    editIcon:SetText("[Edit]")
     editIcon:SetTextColor(unpack(addon.UI.C.textDim))
 
     nameHeader:SetScript("OnClick", function()
@@ -262,15 +262,13 @@ function Editor:Create(parent)
     mountCountText:SetTextColor(unpack(addon.UI.C.textDim))
     self.mountCountText = mountCountText
 
-    -- Browse button
     local browseBtn = addon.UI:CreateAccentButton(detail, "Add Mounts", 100, 24)
     browseBtn:SetScript("OnClick", function()
         addon.UI:SwitchTab("browser")
-        if addon.Browser then
+        if addon.Browser and addon.Browser.listDD then
             addon.Browser.targetListID = Editor.selectedListID
-            if addon.Browser.listDD then
-                addon.Browser.listDD:SetValue(Editor.selectedListID)
-            end
+            addon.Browser.listDD:SetValue(Editor.selectedListID, true)
+            addon.Browser:UpdateCards()
         end
     end)
     self.browseBtn = browseBtn

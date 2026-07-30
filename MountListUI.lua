@@ -518,7 +518,11 @@ function UI:Create()
     if self.frame then return self.frame end
 
     local f = CreateFrame("Frame", "MountListMainFrame", UIParent, "BackdropTemplate")
-    f:SetSize(860, 560)
+    local screenW = UIParent:GetWidth() or 1920
+    local screenH = UIParent:GetHeight() or 1080
+    local defW = math.floor(math.min(1400, math.max(860, screenW * 0.7)))
+    local defH = math.floor(math.min(900, math.max(560, screenH * 0.7)))
+    f:SetSize(defW, defH)
     f:SetPoint("CENTER")
     f:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8x8",
@@ -529,7 +533,7 @@ function UI:Create()
     f:SetBackdropBorderColor(unpack(self.C.borderAccent))
     f:SetMovable(true)
     f:SetResizable(true)
-    f:SetResizeBounds(650, 400, 1200, 800)
+    f:SetResizeBounds(650, 400, screenW, screenH)
     f:EnableMouse(true)
     f:SetClampedToScreen(true)
     f:SetFrameStrata("HIGH")

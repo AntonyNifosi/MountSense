@@ -141,7 +141,10 @@ function Browser:Create(parent)
 
     -- Preview panel (right)
     local preview = CreateFrame("Frame", nil, mainArea, "BackdropTemplate")
-    preview:SetWidth(210)
+    local savedWidth = addon.Data.db.options and addon.Data.db.options.previewWidth
+    local totalW = addon.UI.frame:GetWidth() - 160
+    local initWidth = savedWidth or math.floor(totalW * 0.3)
+    preview:SetWidth(initWidth)
     preview:SetPoint("TOPRIGHT", 0, 0)
     preview:SetPoint("BOTTOMRIGHT", 0, 0)
     preview:SetBackdrop({
@@ -153,9 +156,58 @@ function Browser:Create(parent)
     preview:SetBackdropBorderColor(unpack(addon.UI.C.border))
     self.preview = preview
 
+    -- Resizer (dragger)
+    local resizer = CreateFrame("Button", nil, mainArea)
+    resizer:SetWidth(6)
+    resizer:SetPoint("TOPRIGHT", preview, "TOPLEFT", 0, 0)
+    resizer:SetPoint("BOTTOMRIGHT", preview, "BOTTOMLEFT", 0, 0)
+    resizer:EnableMouse(true)
+    
+    local resizerHighlight = resizer:CreateTexture(nil, "HIGHLIGHT")
+    resizerHighlight:SetAllPoints()
+    resizerHighlight:SetColorTexture(1, 1, 1, 0.05)
+
+    resizer:SetScript("OnMouseDown", function(self)
+        local startX = GetCursorPosition()
+        local startW = preview:GetWidth()
+        local scale = self:GetEffectiveScale()
+        
+        self:SetScript("OnUpdate", function(self)
+            if not IsMouseButtonDown("LeftButton") then
+                self:SetScript("OnUpdate", nil)
+                if addon.Data.db.options then
+                    addon.Data.db.options.previewWidth = preview:GetWidth()
+                end
+                return
+            end
+            
+            local x = GetCursorPosition()
+            local dx = (startX - x) / scale
+            local newW = startW + dx
+            
+            local maxW = mainArea:GetWidth() * 0.5
+            if newW > maxW then newW = maxW end
+            if newW < 160 then newW = 160 end
+            
+            preview:SetWidth(newW)
+            if Browser.model then
+                Browser.model:SetSize(newW - 20, newW - 20)
+            end
+        end)
+    end)
+    resizer:SetScript("OnMouseUp", function(self)
+        self:SetScript("OnUpdate", nil)
+        if addon.Data.db.options then
+            addon.Data.db.options.previewWidth = preview:GetWidth()
+        end
+    end)
+    resizer:SetScript("OnHide", function(self)
+        self:SetScript("OnUpdate", nil)
+    end)
+
     -- 3D Model
     local model = CreateFrame("PlayerModel", nil, preview)
-    model:SetSize(190, 190)
+    model:SetSize(initWidth - 20, initWidth - 20)
     model:SetPoint("TOP", 0, -8)
     model:SetScript("OnMouseDown", function(self) self.rotating = true end)
     model:SetScript("OnMouseUp", function(self) self.rotating = false end)

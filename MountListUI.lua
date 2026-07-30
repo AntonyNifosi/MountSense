@@ -254,7 +254,7 @@ function UI:CreateDropdown(parent, width, items, onChange)
     local arrow = dd:CreateFontString(nil, "OVERLAY")
     arrow:SetFont(self.FONT, 10, "")
     arrow:SetPoint("RIGHT", -6, 0)
-    arrow:SetText("▼")
+    arrow:SetText("v")
     arrow:SetTextColor(unpack(self.C.textDim))
 
     -- Menu frame

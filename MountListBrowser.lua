@@ -62,7 +62,7 @@ function Browser:Create(parent)
 
     -- Type filter buttons
     local typeButtons = {}
-    local categories = { "ALL", "GROUND", "FLYING", "AQUATIC", "SKYRIDING" }
+    local categories = addon.Data.MOUNT_CATEGORIES
     local btnX = 180
     for _, cat in ipairs(categories) do
         local btn = CreateFrame("Button", nil, filterBar, "BackdropTemplate")
@@ -111,8 +111,8 @@ function Browser:Create(parent)
 
     -- Sort dropdown
     local sortItems = {
-        { text = "Name (A→Z)", value = "NAME_ASC" },
-        { text = "Name (Z→A)", value = "NAME_DESC" },
+        { text = "Name (A - Z)", value = "NAME_ASC" },
+        { text = "Name (Z - A)", value = "NAME_DESC" },
         { text = "Rarity",     value = "RARITY" },
     }
     local sortDD = addon.UI:CreateDropdown(filterBar, 130, sortItems, function(value)
@@ -306,6 +306,19 @@ function Browser:Create(parent)
     end)
     self.clearBtn = clearBtn
 
+    -- Select All button
+    local selectAllBtn = addon.UI:CreateButton(selBar, "Select All", 80, 26)
+    selectAllBtn:SetPoint("LEFT", clearBtn, "RIGHT", 10, 0)
+    selectAllBtn:SetScript("OnClick", function()
+        if not Browser.currentMounts then return end
+        for _, mountData in ipairs(Browser.currentMounts) do
+            Browser.selected[mountData.mountID] = true
+        end
+        Browser:UpdateSelection()
+        Browser:UpdateCards()
+    end)
+    self.selectAllBtn = selectAllBtn
+
     -- Initial type button state
     self:UpdateTypeButtons()
 end
@@ -473,7 +486,7 @@ function Browser:CreateCard(parent, index)
     local checkmark = card:CreateFontString(nil, "OVERLAY", nil, 3)
     checkmark:SetFont(addon.UI.FONT, 16, "OUTLINE")
     checkmark:SetPoint("TOPRIGHT", -3, -3)
-    checkmark:SetText("✓")
+    checkmark:SetText("v")
     checkmark:SetTextColor(0.2, 0.9, 0.4)
     checkmark:Hide()
     card.checkmark = checkmark

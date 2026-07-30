@@ -60,9 +60,9 @@ Data.MOUNT_TYPE_LABELS = {
 Data.MOUNT_TYPE_ICONS = {
     ALL      = "Interface\\Icons\\Ability_Mount_RidingHorse",
     GROUND   = "Interface\\Icons\\Spell_Nature_Swiftness",
-    FLYING   = "Interface\\Icons\\Ability_Mount_FlyingMachine",
+    FLYING   = "Interface\\Icons\\ability_mount_drake_blue",
     AQUATIC  = "Interface\\Icons\\INV_Misc_Fish_35",
-    OTHER    = "Interface\\Icons\\INV_Misc_QuestionMark",
+    OTHER    = "Interface\\Icons\\trade_engineering",
 }
 
 -------------------------------------------------------------------------------

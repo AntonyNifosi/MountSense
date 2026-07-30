@@ -1,0 +1,630 @@
+-------------------------------------------------------------------------------
+-- MountList — Mount Browser
+-- Grid of mount icons with filters, search, sort, 3D preview, multi-select
+-------------------------------------------------------------------------------
+local addonName, addon = ...
+local Browser = {}
+addon.Browser = Browser
+
+Browser.frame = nil
+Browser.cards = {}
+Browser.selected = {}    -- [mountID] = true
+Browser.currentMounts = {}
+Browser.previewMountID = nil
+Browser.filterType = "ALL"
+Browser.sortBy = "NAME_ASC"
+Browser.collectedOnly = true
+Browser.searchText = ""
+Browser.targetListID = nil  -- for "add to list"
+
+local CARD_WIDTH  = 100
+local CARD_HEIGHT = 120
+local CARD_GAP    = 6
+local GRID_COLS   = 5
+
+-------------------------------------------------------------------------------
+-- Create the browser UI inside the given parent
+-------------------------------------------------------------------------------
+function Browser:Create(parent)
+    if self.frame then return end
+
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetAllPoints()
+    self.frame = f
+
+    ---------------------------------------------------------------------------
+    -- Filter Bar (top)
+    ---------------------------------------------------------------------------
+    local filterBar = CreateFrame("Frame", nil, f, "BackdropTemplate")
+    filterBar:SetHeight(42)
+    filterBar:SetPoint("TOPLEFT", 8, -8)
+    filterBar:SetPoint("TOPRIGHT", -8, -8)
+    filterBar:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    filterBar:SetBackdropColor(unpack(addon.UI.C.bgPanel))
+    filterBar:SetBackdropBorderColor(unpack(addon.UI.C.border))
+    self.filterBar = filterBar
+
+    -- Search box
+    local searchBox = addon.UI:CreateEditBox(filterBar, 160, 24, "Search...")
+    searchBox:SetPoint("LEFT", 8, 0)
+    searchBox.onTextChanged = function(self, userInput)
+        if userInput then
+            Browser.searchText = self:GetText()
+            Browser:Refresh()
+        end
+    end
+    searchBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    self.searchBox = searchBox
+
+    -- Type filter buttons
+    local typeButtons = {}
+    local categories = { "ALL", "GROUND", "FLYING", "AQUATIC", "SKYRIDING" }
+    local btnX = 180
+    for _, cat in ipairs(categories) do
+        local btn = CreateFrame("Button", nil, filterBar, "BackdropTemplate")
+        btn:SetSize(24, 24)
+        btn:SetPoint("LEFT", btnX, 0)
+        btn:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8x8",
+            edgeFile = "Interface\\Buttons\\WHITE8x8",
+            edgeSize = 1,
+        })
+        btn:SetBackdropColor(unpack(addon.UI.C.bgCard))
+        btn:SetBackdropBorderColor(unpack(addon.UI.C.border))
+
+        local ico = btn:CreateTexture(nil, "ARTWORK")
+        ico:SetPoint("TOPLEFT", 2, -2)
+        ico:SetPoint("BOTTOMRIGHT", -2, 2)
+        ico:SetTexture(addon.Data.MOUNT_TYPE_ICONS[cat])
+        ico:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        btn.ico = ico
+
+        btn.cat = cat
+        btn:SetScript("OnClick", function(self)
+            Browser.filterType = self.cat
+            Browser:UpdateTypeButtons()
+            Browser:Refresh()
+        end)
+        btn:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(addon.Data.MOUNT_TYPE_LABELS[self.cat] or self.cat)
+            GameTooltip:Show()
+            if Browser.filterType ~= self.cat then
+                self:SetBackdropBorderColor(unpack(addon.UI.C.accent))
+            end
+        end)
+        btn:SetScript("OnLeave", function(self)
+            GameTooltip:Hide()
+            if Browser.filterType ~= self.cat then
+                self:SetBackdropBorderColor(unpack(addon.UI.C.border))
+            end
+        end)
+
+        typeButtons[cat] = btn
+        btnX = btnX + 30
+    end
+    self.typeButtons = typeButtons
+
+    -- Sort dropdown
+    local sortItems = {
+        { text = "Name (A→Z)", value = "NAME_ASC" },
+        { text = "Name (Z→A)", value = "NAME_DESC" },
+        { text = "Rarity",     value = "RARITY" },
+    }
+    local sortDD = addon.UI:CreateDropdown(filterBar, 130, sortItems, function(value)
+        Browser.sortBy = value
+        Browser:Refresh()
+    end)
+    sortDD:SetPoint("RIGHT", -8, 0)
+    self.sortDD = sortDD
+
+    -- Collected toggle
+    local collectedCB = addon.UI:CreateCheckbox(filterBar, "Collected", 16)
+    collectedCB:SetPoint("RIGHT", sortDD, "LEFT", -12, 0)
+    collectedCB:SetChecked(true)
+    collectedCB.onToggle = function(self, checked)
+        Browser.collectedOnly = checked
+        Browser:Refresh()
+    end
+    self.collectedCB = collectedCB
+
+    ---------------------------------------------------------------------------
+    -- Main area: Grid (left) + Preview (right)
+    ---------------------------------------------------------------------------
+    local mainArea = CreateFrame("Frame", nil, f)
+    mainArea:SetPoint("TOPLEFT", filterBar, "BOTTOMLEFT", 0, -6)
+    mainArea:SetPoint("BOTTOMRIGHT", -8, 44)
+
+    -- Preview panel (right)
+    local preview = CreateFrame("Frame", nil, mainArea, "BackdropTemplate")
+    preview:SetWidth(210)
+    preview:SetPoint("TOPRIGHT", 0, 0)
+    preview:SetPoint("BOTTOMRIGHT", 0, 0)
+    preview:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    preview:SetBackdropColor(unpack(addon.UI.C.bgPanel))
+    preview:SetBackdropBorderColor(unpack(addon.UI.C.border))
+    self.preview = preview
+
+    -- 3D Model
+    local model = CreateFrame("PlayerModel", nil, preview)
+    model:SetSize(190, 190)
+    model:SetPoint("TOP", 0, -8)
+    model:SetScript("OnMouseDown", function(self) self.rotating = true end)
+    model:SetScript("OnMouseUp", function(self) self.rotating = false end)
+    model:SetScript("OnUpdate", function(self, elapsed)
+        if self.rotating then
+            local x, y = GetCursorPosition()
+            if self.lastX then
+                local dx = (x - self.lastX) * 0.02
+                self:SetFacing(self:GetFacing() + dx)
+            end
+            self.lastX = x
+        else
+            self.lastX = nil
+        end
+    end)
+    self.model = model
+
+    -- Mount name in preview
+    local previewName = preview:CreateFontString(nil, "OVERLAY")
+    previewName:SetFont(addon.UI.FONT, 13, "")
+    previewName:SetPoint("TOP", model, "BOTTOM", 0, -6)
+    previewName:SetPoint("LEFT", 8, 0)
+    previewName:SetPoint("RIGHT", -8, 0)
+    previewName:SetJustifyH("CENTER")
+    previewName:SetTextColor(unpack(addon.UI.C.accent))
+    previewName:SetText("")
+    self.previewName = previewName
+
+    -- Mount source in preview
+    local previewSource = preview:CreateFontString(nil, "OVERLAY")
+    previewSource:SetFont(addon.UI.FONT, 10, "")
+    previewSource:SetPoint("TOP", previewName, "BOTTOM", 0, -3)
+    previewSource:SetPoint("LEFT", 8, 0)
+    previewSource:SetPoint("RIGHT", -8, 0)
+    previewSource:SetJustifyH("CENTER")
+    previewSource:SetTextColor(unpack(addon.UI.C.textDim))
+    self.previewSource = previewSource
+
+    -- Mount type in preview
+    local previewType = preview:CreateFontString(nil, "OVERLAY")
+    previewType:SetFont(addon.UI.FONT, 10, "")
+    previewType:SetPoint("TOP", previewSource, "BOTTOM", 0, -2)
+    previewType:SetPoint("LEFT", 8, 0)
+    previewType:SetPoint("RIGHT", -8, 0)
+    previewType:SetJustifyH("CENTER")
+    previewType:SetTextColor(unpack(addon.UI.C.textDim))
+    self.previewType = previewType
+
+    -- Mount description (scrollable)
+    local previewDesc = preview:CreateFontString(nil, "OVERLAY")
+    previewDesc:SetFont(addon.UI.FONT, 9, "")
+    previewDesc:SetPoint("TOP", previewType, "BOTTOM", 0, -8)
+    previewDesc:SetPoint("LEFT", 12, 0)
+    previewDesc:SetPoint("RIGHT", -12, 0)
+    previewDesc:SetJustifyH("LEFT")
+    previewDesc:SetWordWrap(true)
+    previewDesc:SetTextColor(0.7, 0.7, 0.72)
+    previewDesc:SetMaxLines(6)
+    self.previewDesc = previewDesc
+
+    -- "No mount selected" placeholder
+    local previewPlaceholder = preview:CreateFontString(nil, "OVERLAY")
+    previewPlaceholder:SetFont(addon.UI.FONT, 11, "")
+    previewPlaceholder:SetPoint("CENTER")
+    previewPlaceholder:SetText("Hover a mount\nto preview")
+    previewPlaceholder:SetTextColor(unpack(addon.UI.C.textDim))
+    previewPlaceholder:SetJustifyH("CENTER")
+    self.previewPlaceholder = previewPlaceholder
+
+    ---------------------------------------------------------------------------
+    -- Grid area (left of preview)
+    ---------------------------------------------------------------------------
+    local gridArea = CreateFrame("Frame", nil, mainArea)
+    gridArea:SetPoint("TOPLEFT", 0, 0)
+    gridArea:SetPoint("BOTTOMRIGHT", preview, "BOTTOMLEFT", -6, 0)
+
+    -- ScrollFrame
+    local scroll = CreateFrame("ScrollFrame", "MountListBrowserScroll", gridArea, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", -22, 0)
+
+    -- Style the scrollbar
+    local scrollBar = scroll.ScrollBar or _G["MountListBrowserScrollScrollBar"]
+    if scrollBar then
+        scrollBar:SetWidth(12)
+    end
+
+    local scrollChild = CreateFrame("Frame", nil, scroll)
+    scrollChild:SetWidth(scroll:GetWidth())
+    scrollChild:SetHeight(1) -- will be updated
+    scroll:SetScrollChild(scrollChild)
+    self.scrollChild = scrollChild
+    self.scroll = scroll
+
+    -- Update scrollChild width when grid resizes
+    gridArea:SetScript("OnSizeChanged", function(self, w, h)
+        scrollChild:SetWidth(w - 24)
+        Browser:LayoutCards()
+    end)
+
+    ---------------------------------------------------------------------------
+    -- Selection bar (bottom)
+    ---------------------------------------------------------------------------
+    local selBar = CreateFrame("Frame", nil, f, "BackdropTemplate")
+    selBar:SetHeight(36)
+    selBar:SetPoint("BOTTOMLEFT", 8, 6)
+    selBar:SetPoint("BOTTOMRIGHT", -8, 6)
+    selBar:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    selBar:SetBackdropColor(unpack(addon.UI.C.bgPanel))
+    selBar:SetBackdropBorderColor(unpack(addon.UI.C.border))
+    self.selBar = selBar
+
+    -- Selection count
+    local selCount = selBar:CreateFontString(nil, "OVERLAY")
+    selCount:SetFont(addon.UI.FONT, 11, "")
+    selCount:SetPoint("LEFT", 12, 0)
+    selCount:SetText("0 selected")
+    selCount:SetTextColor(unpack(addon.UI.C.textDim))
+    self.selCount = selCount
+
+    -- Add to list dropdown
+    local listDD = addon.UI:CreateDropdown(selBar, 180, {}, function(value)
+        Browser.targetListID = value
+    end)
+    listDD:SetPoint("RIGHT", -120, 0)
+    self.listDD = listDD
+
+    -- Add button
+    local addBtn = addon.UI:CreateAccentButton(selBar, "Add to List", 108, 26)
+    addBtn:SetPoint("RIGHT", -6, 0)
+    addBtn:SetScript("OnClick", function()
+        Browser:AddSelectedToList()
+    end)
+    self.addBtn = addBtn
+
+    -- Clear selection button
+    local clearBtn = addon.UI:CreateButton(selBar, "Clear", 60, 26)
+    clearBtn:SetPoint("LEFT", selCount, "RIGHT", 10, 0)
+    clearBtn:SetScript("OnClick", function()
+        wipe(Browser.selected)
+        Browser:UpdateSelection()
+        Browser:UpdateCards()
+    end)
+    self.clearBtn = clearBtn
+
+    -- Initial type button state
+    self:UpdateTypeButtons()
+end
+
+-------------------------------------------------------------------------------
+-- Type filter button highlighting
+-------------------------------------------------------------------------------
+function Browser:UpdateTypeButtons()
+    for cat, btn in pairs(self.typeButtons) do
+        if cat == self.filterType then
+            btn:SetBackdropColor(0.18, 0.14, 0.02, 1)
+            btn:SetBackdropBorderColor(unpack(addon.UI.C.accent))
+        else
+            btn:SetBackdropColor(unpack(addon.UI.C.bgCard))
+            btn:SetBackdropBorderColor(unpack(addon.UI.C.border))
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Refresh the mount grid
+-------------------------------------------------------------------------------
+function Browser:Refresh()
+    if not self.frame or not self.frame:IsShown() then return end
+
+    -- Refresh list dropdown
+    self:RefreshListDropdown()
+
+    -- Get filtered mounts
+    self.currentMounts = addon.Data:GetFilteredMounts(
+        self.searchText,
+        self.filterType,
+        self.sortBy,
+        self.collectedOnly
+    )
+
+    self:BuildCards()
+    self:UpdateSelection()
+end
+
+function Browser:RefreshListDropdown()
+    local items = {}
+    local sortedLists = addon.Data:GetSortedLists()
+    for _, entry in ipairs(sortedLists) do
+        items[#items + 1] = {
+            text = entry.list.name .. " (" .. #entry.list.mounts .. ")",
+            value = entry.id,
+        }
+    end
+    if #items == 0 then
+        items[#items + 1] = { text = "No lists created", value = nil }
+    end
+    self.listDD:SetItems(items)
+    if #sortedLists > 0 and not self.targetListID then
+        self.targetListID = sortedLists[1].id
+        self.listDD:SetValue(self.targetListID)
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Build card frames
+-------------------------------------------------------------------------------
+function Browser:BuildCards()
+    -- Hide existing cards
+    for _, card in ipairs(self.cards) do
+        card:Hide()
+    end
+
+    local mounts = self.currentMounts
+    local parent = self.scrollChild
+
+    for i, mountData in ipairs(mounts) do
+        local card = self.cards[i]
+        if not card then
+            card = self:CreateCard(parent, i)
+            self.cards[i] = card
+        end
+        self:SetupCard(card, mountData)
+        card:Show()
+    end
+
+    self:LayoutCards()
+end
+
+-------------------------------------------------------------------------------
+-- Layout cards in grid
+-------------------------------------------------------------------------------
+function Browser:LayoutCards()
+    local parentWidth = self.scrollChild:GetWidth()
+    if parentWidth < 50 then parentWidth = 480 end
+
+    local cols = math.max(1, math.floor((parentWidth + CARD_GAP) / (CARD_WIDTH + CARD_GAP)))
+    local totalShown = 0
+
+    for i, card in ipairs(self.cards) do
+        if card:IsShown() then
+            totalShown = totalShown + 1
+            local row = math.floor((totalShown - 1) / cols)
+            local col = (totalShown - 1) % cols
+            local x = col * (CARD_WIDTH + CARD_GAP) + 4
+            local y = -(row * (CARD_HEIGHT + CARD_GAP) + 4)
+            card:ClearAllPoints()
+            card:SetPoint("TOPLEFT", x, y)
+        end
+    end
+
+    local rows = math.ceil(totalShown / cols)
+    self.scrollChild:SetHeight(math.max(1, rows * (CARD_HEIGHT + CARD_GAP) + 8))
+end
+
+-------------------------------------------------------------------------------
+-- Create a single card frame
+-------------------------------------------------------------------------------
+function Browser:CreateCard(parent, index)
+    local card = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    card:SetSize(CARD_WIDTH, CARD_HEIGHT)
+    card:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    card:SetBackdropColor(unpack(addon.UI.C.bgCard))
+    card:SetBackdropBorderColor(unpack(addon.UI.C.border))
+
+    -- Icon
+    local icon = card:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 8, -8)
+    icon:SetPoint("TOPRIGHT", -8, -8)
+    icon:SetHeight(CARD_WIDTH - 16)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    card.icon = icon
+
+    -- Source colour stripe (top)
+    local stripe = card:CreateTexture(nil, "OVERLAY")
+    stripe:SetHeight(2)
+    stripe:SetPoint("TOPLEFT", 1, -1)
+    stripe:SetPoint("TOPRIGHT", -1, -1)
+    card.stripe = stripe
+
+    -- Name
+    local name = card:CreateFontString(nil, "OVERLAY")
+    name:SetFont(addon.UI.FONT, 9, "")
+    name:SetPoint("BOTTOMLEFT", 4, 4)
+    name:SetPoint("BOTTOMRIGHT", -4, 4)
+    name:SetHeight(24)
+    name:SetJustifyH("CENTER")
+    name:SetJustifyV("BOTTOM")
+    name:SetWordWrap(true)
+    name:SetMaxLines(2)
+    name:SetTextColor(unpack(addon.UI.C.text))
+    card.nameText = name
+
+    -- Selection overlay
+    local selOverlay = card:CreateTexture(nil, "OVERLAY", nil, 2)
+    selOverlay:SetAllPoints()
+    selOverlay:SetColorTexture(0.25, 0.55, 1.0, 0.25)
+    selOverlay:Hide()
+    card.selOverlay = selOverlay
+
+    -- Checkmark
+    local checkmark = card:CreateFontString(nil, "OVERLAY", nil, 3)
+    checkmark:SetFont(addon.UI.FONT, 16, "OUTLINE")
+    checkmark:SetPoint("TOPRIGHT", -3, -3)
+    checkmark:SetText("✓")
+    checkmark:SetTextColor(0.2, 0.9, 0.4)
+    checkmark:Hide()
+    card.checkmark = checkmark
+
+    -- Hover highlight
+    local highlight = card:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.06)
+
+    -- Scripts
+    card:SetScript("OnClick", function(self, button)
+        if button == "LeftButton" then
+            local mountID = self.mountID
+            if mountID then
+                if Browser.selected[mountID] then
+                    Browser.selected[mountID] = nil
+                else
+                    Browser.selected[mountID] = true
+                end
+                Browser:UpdateCardSelection(self)
+                Browser:UpdateSelection()
+            end
+        end
+    end)
+
+    card:SetScript("OnEnter", function(self)
+        if self.mountData then
+            Browser:ShowPreview(self.mountData)
+            self:SetBackdropColor(unpack(addon.UI.C.bgCardHover))
+        end
+    end)
+
+    card:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(unpack(addon.UI.C.bgCard))
+    end)
+
+    return card
+end
+
+-------------------------------------------------------------------------------
+-- Setup a card with mount data
+-------------------------------------------------------------------------------
+function Browser:SetupCard(card, mountData)
+    card.mountID = mountData.mountID
+    card.mountData = mountData
+    card.icon:SetTexture(mountData.icon)
+    card.nameText:SetText(mountData.name)
+
+    -- Source colour stripe
+    local srcColor = addon.Data.SOURCE_COLORS[mountData.sourceType] or { 0.5, 0.5, 0.5 }
+    card.stripe:SetColorTexture(srcColor[1], srcColor[2], srcColor[3], 0.8)
+
+    -- Update selection state
+    self:UpdateCardSelection(card)
+end
+
+function Browser:UpdateCardSelection(card)
+    if not card.mountID then return end
+    if self.selected[card.mountID] then
+        card.selOverlay:Show()
+        card.checkmark:Show()
+        card:SetBackdropBorderColor(0.3, 0.65, 1.0, 1)
+    else
+        card.selOverlay:Hide()
+        card.checkmark:Hide()
+        local srcColor = addon.Data.SOURCE_COLORS[card.mountData and card.mountData.sourceType or 0] or { 0.5, 0.5, 0.5 }
+        card:SetBackdropBorderColor(addon.UI.C.border[1], addon.UI.C.border[2],
+                                     addon.UI.C.border[3], addon.UI.C.border[4])
+    end
+end
+
+function Browser:UpdateCards()
+    for _, card in ipairs(self.cards) do
+        if card:IsShown() and card.mountID then
+            self:UpdateCardSelection(card)
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Selection management
+-------------------------------------------------------------------------------
+function Browser:UpdateSelection()
+    local count = 0
+    for _ in pairs(self.selected) do
+        count = count + 1
+    end
+    self.selCount:SetText(count .. " selected")
+    if count > 0 then
+        self.selCount:SetTextColor(unpack(addon.UI.C.accentBlue))
+    else
+        self.selCount:SetTextColor(unpack(addon.UI.C.textDim))
+    end
+end
+
+function Browser:AddSelectedToList()
+    local listID = self.targetListID
+    if not listID then
+        addon:Print("Please select a list first!")
+        return
+    end
+
+    local list = addon.Data:GetList(listID)
+    if not list then
+        addon:Print("List not found!")
+        return
+    end
+
+    local mountIDs = {}
+    for mountID in pairs(self.selected) do
+        mountIDs[#mountIDs + 1] = mountID
+    end
+
+    if #mountIDs == 0 then
+        addon:Print("No mounts selected!")
+        return
+    end
+
+    addon.Data:AddMountsToList(listID, mountIDs)
+    addon:Print(#mountIDs .. " mount(s) added to \"" .. list.name .. "\"!")
+
+    -- Clear selection
+    wipe(self.selected)
+    self:UpdateSelection()
+    self:UpdateCards()
+
+    -- Update summon button
+    addon.Summon:UpdateMount()
+end
+
+-------------------------------------------------------------------------------
+-- 3D Preview
+-------------------------------------------------------------------------------
+function Browser:ShowPreview(mountData)
+    if not mountData then return end
+
+    self.previewPlaceholder:Hide()
+    self.previewName:SetText(mountData.name)
+
+    local srcLabel = addon.Data.SOURCE_TYPE_LABELS[mountData.sourceType] or "Unknown"
+    local srcColor = addon.Data.SOURCE_COLORS[mountData.sourceType] or { 0.5, 0.5, 0.5 }
+    self.previewSource:SetText(srcLabel)
+    self.previewSource:SetTextColor(srcColor[1], srcColor[2], srcColor[3])
+
+    local typeLabel = addon.Data.MOUNT_TYPE_LABELS[mountData.category] or "Other"
+    self.previewType:SetText(typeLabel)
+
+    self.previewDesc:SetText(mountData.description or "")
+
+    -- Set 3D model
+    if mountData.creatureDisplayID and mountData.creatureDisplayID > 0 then
+        self.model:ClearModel()
+        self.model:SetDisplayInfo(mountData.creatureDisplayID)
+        self.model:SetPortraitZoom(0)
+        self.model:SetCamDistanceScale(1.2)
+        self.model:SetFacing(math.rad(-20))
+        self.model:SetPosition(0, 0, -0.2)
+    end
+end

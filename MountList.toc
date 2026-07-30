@@ -1,0 +1,16 @@
+## Interface: 120007
+## Title: |cffFFB800MountList|r
+## Notes: Create custom mount lists with smart conditions. Summon random mounts based on your current context.
+## Author: Lyoko
+## Version: 1.0.0
+## SavedVariables: MountListDB
+## IconTexture: Interface\Icons\Ability_Mount_RidingHorse
+
+MountListData.lua
+MountListConditions.lua
+MountListSummon.lua
+MountListUI.lua
+MountListBrowser.lua
+MountListEditor.lua
+MountListMinimap.lua
+MountList.lua

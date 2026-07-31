@@ -615,17 +615,16 @@ function Editor:CreateMountIcon(parent, index)
     -- Remove "x" overlay (shown on hover)
     local removeOverlay = btn:CreateTexture(nil, "OVERLAY")
     removeOverlay:SetAllPoints()
-    removeOverlay:SetColorTexture(0.9, 0.1, 0.1, 0.3)
+    removeOverlay:SetColorTexture(0.9, 0.1, 0.1, 0.25)
     removeOverlay:Hide()
     btn.removeOverlay = removeOverlay
 
-    local removeText = btn:CreateFontString(nil, "OVERLAY")
-    removeText:SetFont(addon.UI.FONT, 14, "OUTLINE")
-    removeText:SetPoint("CENTER")
-    removeText:SetText("×")
-    removeText:SetTextColor(1, 1, 1)
-    removeText:Hide()
-    btn.removeText = removeText
+    local removeIcon = btn:CreateTexture(nil, "OVERLAY", nil, 1)
+    removeIcon:SetSize(18, 18)
+    removeIcon:SetPoint("CENTER")
+    removeIcon:SetTexture("Interface\\RAIDFRAME\\ReadyCheck-NotReady")
+    removeIcon:Hide()
+    btn.removeText = removeIcon
 
     btn:SetScript("OnEnter", function(self)
         self.removeOverlay:Show()
@@ -672,8 +671,7 @@ function Editor:UpdateLayout()
     local cbY = -10
     for i, cb in ipairs(self.contextCheckboxes) do
         cb:ClearAllPoints()
-        local cbWidth = cb.label:GetStringWidth() + 24
-        if cbWidth < 90 then cbWidth = 90 end
+        local cbWidth = cb:GetWidth()
         
         if i == 1 then
             cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
@@ -684,7 +682,7 @@ function Editor:UpdateLayout()
             end
             cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
         end
-        cbX = cbX + cbWidth + 10
+        cbX = cbX + cbWidth + 15
     end
     
     -- Position specLabel below contexts (more breathing room)
@@ -700,8 +698,7 @@ function Editor:UpdateLayout()
             if not cb:IsShown() then break end
             hasSpecs = true
             cb:ClearAllPoints()
-            local cbWidth = cb.label:GetStringWidth() + 24
-            if cbWidth < 80 then cbWidth = 80 end
+            local cbWidth = cb:GetWidth()
             
             if i == 1 then
                 cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
@@ -712,7 +709,7 @@ function Editor:UpdateLayout()
                 end
                 cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
             end
-            cbX = cbX + cbWidth + 10
+            cbX = cbX + cbWidth + 15
         end
     end
     

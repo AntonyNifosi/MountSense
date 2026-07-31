@@ -531,12 +531,20 @@ function Browser:CreateCard(parent, index)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     card.icon = icon
 
-    -- Source colour stripe (top)
+    -- Source colour stripe (top) — thicker for better visibility
     local stripe = card:CreateTexture(nil, "OVERLAY")
-    stripe:SetHeight(2)
+    stripe:SetHeight(3)
     stripe:SetPoint("TOPLEFT", 1, -1)
     stripe:SetPoint("TOPRIGHT", -1, -1)
     card.stripe = stripe
+
+    -- Subtle glow under the stripe for a polished look
+    local stripeGlow = card:CreateTexture(nil, "OVERLAY", nil, -1)
+    stripeGlow:SetHeight(6)
+    stripeGlow:SetPoint("TOPLEFT", stripe, "BOTTOMLEFT", 0, 0)
+    stripeGlow:SetPoint("TOPRIGHT", stripe, "BOTTOMRIGHT", 0, 0)
+    stripeGlow:SetColorTexture(1, 1, 1, 0.08)
+    card.stripeGlow = stripeGlow
 
     -- Name
     local name = card:CreateFontString(nil, "OVERLAY")
@@ -551,38 +559,44 @@ function Browser:CreateCard(parent, index)
     name:SetTextColor(unpack(addon.UI.C.text))
     card.nameText = name
 
-    -- Selection overlay
+    -- Selection overlay (soft blue tint)
     local selOverlay = card:CreateTexture(nil, "OVERLAY", nil, 2)
     selOverlay:SetAllPoints()
-    selOverlay:SetColorTexture(0.25, 0.55, 1.0, 0.25)
+    selOverlay:SetColorTexture(0.20, 0.50, 1.0, 0.18)
     selOverlay:Hide()
     card.selOverlay = selOverlay
 
-    -- Checkmark (for selection)
-    local checkmark = card:CreateFontString(nil, "OVERLAY", nil, 3)
-    checkmark:SetFont(addon.UI.FONT, 16, "OUTLINE")
-    checkmark:SetPoint("TOPRIGHT", -3, -3)
-    checkmark:SetText("v")
-    checkmark:SetTextColor(0.2, 0.9, 0.4)
+    -- Checkmark icon (WoW ready-check texture)
+    local checkmark = card:CreateTexture(nil, "OVERLAY", nil, 3)
+    checkmark:SetSize(20, 20)
+    checkmark:SetPoint("TOPRIGHT", -2, -2)
+    checkmark:SetTexture("Interface\\RAIDFRAME\\ReadyCheck-Ready")
     checkmark:Hide()
     card.checkmark = checkmark
 
-    -- "Already in list" indicator
+    -- "Already in list" banner (bottom of icon)
     local inListGroup = CreateFrame("Frame", nil, card)
-    inListGroup:SetAllPoints(icon)
+    inListGroup:SetHeight(18)
+    inListGroup:SetPoint("BOTTOMLEFT", icon, "BOTTOMLEFT", 0, 0)
+    inListGroup:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 0, 0)
     inListGroup:SetFrameLevel(card:GetFrameLevel() + 2)
     inListGroup:Hide()
     card.inListBadge = inListGroup
 
-    local inListTint = inListGroup:CreateTexture(nil, "BACKGROUND")
-    inListTint:SetAllPoints()
-    inListTint:SetColorTexture(0.0, 0.8, 0.2, 0.35)
+    local inListBg = inListGroup:CreateTexture(nil, "BACKGROUND")
+    inListBg:SetAllPoints()
+    inListBg:SetColorTexture(0.0, 0.0, 0.0, 0.7)
+
+    local inListCheck = inListGroup:CreateTexture(nil, "OVERLAY")
+    inListCheck:SetSize(12, 12)
+    inListCheck:SetPoint("LEFT", 4, 0)
+    inListCheck:SetTexture("Interface\\RAIDFRAME\\ReadyCheck-Ready")
 
     local inListText = inListGroup:CreateFontString(nil, "OVERLAY")
-    inListText:SetFont(addon.UI.FONT, 10, "OUTLINE")
-    inListText:SetPoint("CENTER", 0, 0)
+    inListText:SetFont(addon.UI.FONT, 8, "OUTLINE")
+    inListText:SetPoint("LEFT", inListCheck, "RIGHT", 2, 0)
     inListText:SetText("IN LIST")
-    inListText:SetTextColor(0.4, 1.0, 0.4)
+    inListText:SetTextColor(0.3, 1.0, 0.4)
 
     -- Hover highlight
     local highlight = card:CreateTexture(nil, "HIGHLIGHT")
@@ -612,11 +626,22 @@ function Browser:CreateCard(parent, index)
         if self.mountData then
             Browser:ShowPreview(self.mountData)
             self:SetBackdropColor(unpack(addon.UI.C.bgCardHover))
+            -- Subtle source-colored border on hover (if not selected)
+            if not Browser.selected[self.mountID] then
+                local sc = addon.Data.SOURCE_COLORS[self.mountData.sourceType]
+                if sc then
+                    self:SetBackdropBorderColor(sc[1], sc[2], sc[3], 0.6)
+                end
+            end
         end
     end)
 
     card:SetScript("OnLeave", function(self)
         self:SetBackdropColor(unpack(addon.UI.C.bgCard))
+        if not Browser.selected[self.mountID] then
+            self:SetBackdropBorderColor(addon.UI.C.border[1], addon.UI.C.border[2],
+                                         addon.UI.C.border[3], addon.UI.C.border[4])
+        end
     end)
 
     return card
@@ -631,9 +656,10 @@ function Browser:SetupCard(card, mountData)
     card.icon:SetTexture(mountData.icon)
     card.nameText:SetText(mountData.name)
 
-    -- Source colour stripe
+    -- Source colour stripe + matching glow
     local srcColor = addon.Data.SOURCE_COLORS[mountData.sourceType] or { 0.5, 0.5, 0.5 }
-    card.stripe:SetColorTexture(srcColor[1], srcColor[2], srcColor[3], 0.8)
+    card.stripe:SetColorTexture(srcColor[1], srcColor[2], srcColor[3], 0.85)
+    card.stripeGlow:SetColorTexture(srcColor[1], srcColor[2], srcColor[3], 0.12)
 
     -- Update selection state
     self:UpdateCardSelection(card)

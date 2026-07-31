@@ -20,13 +20,9 @@ function Summon:CreateButton()
     end
     local parent = addon.UI.frame.sidebar
 
-    local btn = CreateFrame("Button", "MountListSummonButton", parent, "SecureActionButtonTemplate")
+    local btn = CreateFrame("Button", "MountListSummonButton", parent, "BackdropTemplate")
     btn:SetSize(44, 44)
     btn:SetPoint("BOTTOM", parent, "BOTTOM", 0, 24)
-
-    -- Secure attributes
-    btn:SetAttribute("type1", "macro")
-    btn:SetAttribute("macrotext1", "/run C_MountJournal.SummonByID(0)")
 
     btn:SetMovable(true)
     btn:EnableMouse(true)
@@ -127,18 +123,11 @@ function Summon:CreateButton()
     end)
 
     -- PreClick: pick a fresh random mount right before the click fires
-    btn:SetScript("PreClick", function(self)
+    btn:SetScript("OnClick", function(self)
         if not InCombatLockdown() then
-            Summon:PickRandomMount()
-        end
-    end)
-
-    -- PostClick: prepare next mount
-    btn:SetScript("PostClick", function(self)
-        if not InCombatLockdown() then
-            C_Timer.After(0.5, function()
-                Summon:PickRandomMount()
-            end)
+            Summon:SummonRandom()
+        else
+            addon:Print("Cannot summon while in combat!")
         end
     end)
 
@@ -196,8 +185,6 @@ function Summon:PickRandomMount()
     self.lastMountID = mountID
 
     if self.button then
-        self.button:SetAttribute("macrotext1",
-            "/run C_MountJournal.SummonByID(" .. mountID .. ")")
         local data = addon.Data:GetMountData(mountID)
         if data then
             self.button.icon:SetTexture(data.icon)

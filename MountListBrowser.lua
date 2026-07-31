@@ -595,18 +595,21 @@ function Browser:CreateCard(parent, index)
     highlight:SetColorTexture(1, 1, 1, 0.06)
 
     -- Scripts
+    card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     card:SetScript("OnClick", function(self, button)
+        local mountID = self.mountID
+        if not mountID then return end
+
         if button == "LeftButton" then
-            local mountID = self.mountID
-            if mountID then
-                if Browser.selected[mountID] then
-                    Browser.selected[mountID] = nil
-                else
-                    Browser.selected[mountID] = true
-                end
-                Browser:UpdateCardSelection(self)
-                Browser:UpdateSelection()
+            if Browser.selected[mountID] then
+                Browser.selected[mountID] = nil
+            else
+                Browser.selected[mountID] = true
             end
+            Browser:UpdateCardSelection(self)
+            Browser:UpdateSelection()
+        elseif button == "RightButton" then
+            C_MountJournal.SummonByID(mountID)
         end
     end)
 

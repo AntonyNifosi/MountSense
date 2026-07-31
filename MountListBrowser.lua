@@ -390,12 +390,7 @@ function Browser:Create(parent)
     local selectAllBtn = addon.UI:CreateButton(selBar, "Select All", 80, 26)
     selectAllBtn:SetPoint("LEFT", clearBtn, "RIGHT", 10, 0)
     selectAllBtn:SetScript("OnClick", function()
-        if not Browser.currentMounts then return end
-        for _, mountData in ipairs(Browser.currentMounts) do
-            Browser.selected[mountData.mountID] = true
-        end
-        Browser:UpdateSelection()
-        Browser:UpdateCards()
+        Browser:SelectAll()
     end)
     self.selectAllBtn = selectAllBtn
 
@@ -409,7 +404,7 @@ end
 function Browser:UpdateTypeButtons()
     for cat, btn in pairs(self.typeButtons) do
         if cat == self.filterType then
-            btn:SetBackdropColor(0.18, 0.14, 0.02, 1)
+            btn:SetBackdropColor(unpack(addon.UI.C.accentBg))
             btn:SetBackdropBorderColor(unpack(addon.UI.C.accent))
         else
             btn:SetBackdropColor(unpack(addon.UI.C.bgCard))
@@ -668,7 +663,6 @@ function Browser:UpdateCardSelection(card)
     else
         card.selOverlay:Hide()
         card.checkmark:Hide()
-        local srcColor = addon.Data.SOURCE_COLORS[card.mountData and card.mountData.sourceType or 0] or { 0.5, 0.5, 0.5 }
         card:SetBackdropBorderColor(addon.UI.C.border[1], addon.UI.C.border[2],
                                      addon.UI.C.border[3], addon.UI.C.border[4])
     end

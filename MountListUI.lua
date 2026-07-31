@@ -20,6 +20,8 @@ UI.C = {
     bgInput      = { 0.08, 0.08, 0.13, 1 },
     accent       = { 1.0, 0.72, 0.0 },
     accentDim    = { 0.80, 0.58, 0.0 },
+    accentBg     = { 0.18, 0.14, 0.02, 1 },
+    accentBgHov  = { 0.25, 0.20, 0.04, 1 },
     accentBlue   = { 0.30, 0.65, 1.0 },
     text         = { 0.93, 0.93, 0.93 },
     textDim      = { 0.55, 0.55, 0.60 },
@@ -28,6 +30,7 @@ UI.C = {
     borderAccent = { 1.0, 0.72, 0.0, 0.40 },
     success      = { 0.20, 0.80, 0.35 },
     danger       = { 0.90, 0.25, 0.25 },
+    dangerBg     = { 0.25, 0.08, 0.08, 1 },
     selected     = { 0.25, 0.55, 1.0, 0.25 },
     tabActive    = { 1.0, 0.72, 0.0, 0.15 },
     tabHover     = { 1, 1, 1, 0.06 },
@@ -60,13 +63,13 @@ function UI:CreateButton(parent, text, width, height)
     label:SetTextColor(unpack(self.C.text))
     btn.label = label
 
-    btn:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(unpack(UI.C.bgCardHover))
-        self:SetBackdropBorderColor(unpack(UI.C.accent))
+    btn:SetScript("OnEnter", function(s)
+        s:SetBackdropColor(unpack(UI.C.bgCardHover))
+        s:SetBackdropBorderColor(unpack(UI.C.accent))
     end)
-    btn:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(unpack(UI.C.bgCard))
-        self:SetBackdropBorderColor(unpack(UI.C.border))
+    btn:SetScript("OnLeave", function(s)
+        s:SetBackdropColor(unpack(UI.C.bgCard))
+        s:SetBackdropBorderColor(unpack(UI.C.border))
     end)
 
     return btn
@@ -75,19 +78,19 @@ end
 --- Create an accent (primary) button
 function UI:CreateAccentButton(parent, text, width, height)
     local btn = self:CreateButton(parent, text, width, height)
-    btn:SetBackdropColor(0.18, 0.14, 0.02, 1)
+    btn:SetBackdropColor(unpack(self.C.accentBg))
     btn:SetBackdropBorderColor(unpack(self.C.accent))
     btn.label:SetTextColor(unpack(self.C.accent))
 
-    btn:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(0.25, 0.20, 0.04, 1)
-        self:SetBackdropBorderColor(1, 0.85, 0.2, 1)
-        self.label:SetTextColor(1, 0.85, 0.2)
+    btn:SetScript("OnEnter", function(s)
+        s:SetBackdropColor(unpack(UI.C.accentBgHov))
+        s:SetBackdropBorderColor(1, 0.85, 0.2, 1)
+        s.label:SetTextColor(1, 0.85, 0.2)
     end)
-    btn:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(0.18, 0.14, 0.02, 1)
-        self:SetBackdropBorderColor(unpack(UI.C.accent))
-        self.label:SetTextColor(unpack(UI.C.accent))
+    btn:SetScript("OnLeave", function(s)
+        s:SetBackdropColor(unpack(UI.C.accentBg))
+        s:SetBackdropBorderColor(unpack(UI.C.accent))
+        s.label:SetTextColor(unpack(UI.C.accent))
     end)
     return btn
 end
@@ -96,13 +99,13 @@ end
 function UI:CreateDangerButton(parent, text, width, height)
     local btn = self:CreateButton(parent, text, width, height)
     btn.label:SetTextColor(unpack(self.C.danger))
-    btn:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(0.25, 0.08, 0.08, 1)
-        self:SetBackdropBorderColor(unpack(UI.C.danger))
+    btn:SetScript("OnEnter", function(s)
+        s:SetBackdropColor(unpack(UI.C.dangerBg))
+        s:SetBackdropBorderColor(unpack(UI.C.danger))
     end)
-    btn:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(unpack(UI.C.bgCard))
-        self:SetBackdropBorderColor(unpack(UI.C.border))
+    btn:SetScript("OnLeave", function(s)
+        s:SetBackdropColor(unpack(UI.C.bgCard))
+        s:SetBackdropBorderColor(unpack(UI.C.border))
     end)
     return btn
 end
@@ -159,7 +162,6 @@ end
 function UI:CreateCheckbox(parent, text, size)
     size = size or 18
     local frame = CreateFrame("Button", nil, parent)
-    frame:SetSize(size + 8 + (#(text or "") * 7), size)
     frame.checked = false
 
     -- Box background
@@ -190,6 +192,11 @@ function UI:CreateCheckbox(parent, text, size)
     label:SetText(text or "")
     label:SetTextColor(unpack(self.C.text))
     frame.label = label
+
+    -- Size the hitbox to fit the box + label
+    local labelWidth = label:GetStringWidth() or 0
+    if labelWidth < 10 then labelWidth = #(text or "") * 7 end  -- fallback
+    frame:SetSize(size + 6 + labelWidth + 4, size)
 
     function frame:SetChecked(val)
         self.checked = val
@@ -350,24 +357,28 @@ function UI:CreateDropdown(parent, width, items, onChange)
         end
     end)
 
-    -- Close menu when clicking elsewhere
+    -- Close menu when clicking elsewhere (fullscreen overlay)
+    local overlay = CreateFrame("Button", nil, UIParent)
+    overlay:SetAllPoints(UIParent)
+    overlay:SetFrameStrata("FULLSCREEN")
+    overlay:SetFrameLevel(99)
+    overlay:Hide()
+    overlay:SetScript("OnClick", function()
+        menu:Hide()
+    end)
+    dd.overlay = overlay
+
     menu:SetScript("OnShow", function(self)
-        self:SetPropagateKeyboardInput(false)
+        overlay:Show()
+    end)
+    menu:SetScript("OnHide", function(self)
+        overlay:Hide()
     end)
 
     if items and #items > 0 then
         dd:SetItems(items)
     end
 
-    function dd:SetValue(value)
-        self.selectedValue = value
-        for _, item in ipairs(self.items) do
-            if item.value == value then
-                self.label:SetText(item.text)
-                break
-            end
-        end
-    end
 
     return dd
 end

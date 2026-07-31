@@ -19,6 +19,7 @@ Data.defaults = {
     summonButton = { point = "CENTER", x = 0, y = -200, show = true },
     options = {
         showButton = true,
+        previewWidth = nil,  -- nil = auto (30% of available width)
     },
 }
 
@@ -129,13 +130,23 @@ function Data:InitDB()
     if not MountListDB then
         MountListDB = self:CopyTable(self.defaults)
     end
-    -- Merge missing top-level keys
+    -- Merge missing keys (two levels deep for sub-tables)
     for k, v in pairs(self.defaults) do
         if MountListDB[k] == nil then
             if type(v) == "table" then
                 MountListDB[k] = self:CopyTable(v)
             else
                 MountListDB[k] = v
+            end
+        elseif type(v) == "table" and type(MountListDB[k]) == "table" then
+            for k2, v2 in pairs(v) do
+                if MountListDB[k][k2] == nil then
+                    if type(v2) == "table" then
+                        MountListDB[k][k2] = self:CopyTable(v2)
+                    else
+                        MountListDB[k][k2] = v2
+                    end
+                end
             end
         end
     end
@@ -193,7 +204,7 @@ function Data:BuildMountCache()
             if not self.mountsByType[category] then
                 self.mountsByType[category] = {}
             end
-            table.insert(self.mountsByType[category], mountData)
+            self.mountsByType[category][#self.mountsByType[category] + 1] = mountData
         end
     end
 end

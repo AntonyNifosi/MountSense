@@ -133,6 +133,11 @@ function Summon:CreateButton()
 
     self.button = btn
     self:PickRandomMount()
+
+    -- Respect saved visibility preference
+    if addon.Data.db.options and not addon.Data.db.options.showButton then
+        btn:Hide()
+    end
 end
 
 -------------------------------------------------------------------------------

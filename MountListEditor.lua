@@ -669,7 +669,7 @@ function Editor:UpdateLayout()
     
     -- Layout contexts
     local cbX = 0
-    local cbY = -6
+    local cbY = -10
     for i, cb in ipairs(self.contextCheckboxes) do
         cb:ClearAllPoints()
         local cbWidth = cb.label:GetStringWidth() + 24
@@ -680,20 +680,20 @@ function Editor:UpdateLayout()
         else
             if cbX + cbWidth > width then
                 cbX = 0
-                cbY = cbY - 24
+                cbY = cbY - 26
             end
             cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
         end
         cbX = cbX + cbWidth + 10
     end
     
-    -- Position specLabel below contexts
+    -- Position specLabel below contexts (more breathing room)
     self.specLabel:ClearAllPoints()
-    self.specLabel:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", 0, cbY - 28)
+    self.specLabel:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", 0, cbY - 38)
     
     -- Layout specs
     cbX = 0
-    local specY = -6
+    local specY = -10
     local hasSpecs = false
     if self.specCheckboxes then
         for i, cb in ipairs(self.specCheckboxes) do
@@ -708,7 +708,7 @@ function Editor:UpdateLayout()
             else
                 if cbX + cbWidth > width then
                     cbX = 0
-                    specY = specY - 24
+                    specY = specY - 26
                 end
                 cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
             end
@@ -716,12 +716,12 @@ function Editor:UpdateLayout()
         end
     end
     
-    -- Position mountSep below specs
+    -- Position mountSep below specs (more breathing room)
     self.mountSep:ClearAllPoints()
     if hasSpecs then
-        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, specY - 16)
+        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, specY - 28)
     else
-        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, -12)
+        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, -20)
     end
     self.mountSep:SetPoint("RIGHT", self.detail, "RIGHT", -8, 0)
 end

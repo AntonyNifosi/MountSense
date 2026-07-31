@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Data Layer
+-- MountSense — Data Layer
 -- Mount cache, SavedVariables management, CRUD for lists
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -129,30 +129,30 @@ Data.CONTEXT_INFO = {
 -- Initialisation
 -------------------------------------------------------------------------------
 function Data:InitDB()
-    if not MountListDB then
-        MountListDB = self:CopyTable(self.defaults)
+    if not MountSenseDB then
+        MountSenseDB = self:CopyTable(self.defaults)
     end
     -- Merge missing keys (two levels deep for sub-tables)
     for k, v in pairs(self.defaults) do
-        if MountListDB[k] == nil then
+        if MountSenseDB[k] == nil then
             if type(v) == "table" then
-                MountListDB[k] = self:CopyTable(v)
+                MountSenseDB[k] = self:CopyTable(v)
             else
-                MountListDB[k] = v
+                MountSenseDB[k] = v
             end
-        elseif type(v) == "table" and type(MountListDB[k]) == "table" then
+        elseif type(v) == "table" and type(MountSenseDB[k]) == "table" then
             for k2, v2 in pairs(v) do
-                if MountListDB[k][k2] == nil then
+                if MountSenseDB[k][k2] == nil then
                     if type(v2) == "table" then
-                        MountListDB[k][k2] = self:CopyTable(v2)
+                        MountSenseDB[k][k2] = self:CopyTable(v2)
                     else
-                        MountListDB[k][k2] = v2
+                        MountSenseDB[k][k2] = v2
                     end
                 end
             end
         end
     end
-    self.db = MountListDB
+    self.db = MountSenseDB
 end
 
 function Data:CopyTable(src)

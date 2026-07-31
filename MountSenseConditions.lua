@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Condition Engine
+-- MountSense — Condition Engine
 -- Detects player context (instance type, spec) and evaluates list conditions
 -------------------------------------------------------------------------------
 local addonName, addon = ...

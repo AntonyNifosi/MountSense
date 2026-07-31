@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Summon Logic
+-- MountSense — Summon Logic
 -- SecureActionButton for random mount invocation respecting list conditions
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -20,7 +20,7 @@ function Summon:CreateButton()
     end
     local parent = addon.UI.frame.sidebar
 
-    local btn = CreateFrame("Button", "MountListSummonButton", parent, "BackdropTemplate")
+    local btn = CreateFrame("Button", "MountSenseSummonButton", parent, "BackdropTemplate")
     btn:SetSize(44, 44)
     btn:SetPoint("BOTTOM", parent, "BOTTOM", 0, 24)
 
@@ -74,20 +74,20 @@ function Summon:CreateButton()
     ---------------------------------------------------------------------------
     -- Scripts
     ---------------------------------------------------------------------------
-    local macroName = "MountList"
+    local macroName = "MountSense"
     local function EnsureAndPickupMacro()
         if InCombatLockdown() then
             addon:Print("Cannot create macro during combat.")
             return
         end
         local name, _, body = GetMacroInfo(macroName)
-        local desiredBody = "/ml summon"
+        local desiredBody = "/ms summon"
         if not name then
             local numGlobal, numChar = GetNumMacros()
             if numGlobal < 120 then
                 CreateMacro(macroName, 413588, desiredBody, false)
             else
-                addon:Print("Macro limit reached! Please delete a macro first, or create one manually with '/ml summon'.")
+                addon:Print("Macro limit reached! Please delete a macro first, or create one manually with '/ms summon'.")
                 return
             end
         elseif body ~= desiredBody then
@@ -103,7 +103,7 @@ function Summon:CreateButton()
 
     btn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("|cffFFB800MountList|r", 1, 1, 1)
+        GameTooltip:SetText("|cffFFB800MountSense|r", 1, 1, 1)
         GameTooltip:AddLine("Drag to action bar to place macro", 0.0, 1.0, 0.5)
         if Summon.lastMountID then
             local data = addon.Data:GetMountData(Summon.lastMountID)

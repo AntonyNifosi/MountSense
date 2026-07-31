@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Mount Browser
+-- MountSense — Mount Browser
 -- Grid of mount icons with filters, search, sort, 3D preview, multi-select
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -329,12 +329,12 @@ function Browser:Create(parent)
     gridArea:SetPoint("BOTTOMRIGHT", preview, "BOTTOMLEFT", -6, 0)
 
     -- ScrollFrame
-    local scroll = CreateFrame("ScrollFrame", "MountListBrowserScroll", gridArea, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "MountSenseBrowserScroll", gridArea, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 0, 0)
     scroll:SetPoint("BOTTOMRIGHT", -22, 0)
 
     -- Style the scrollbar
-    local scrollBar = scroll.ScrollBar or _G["MountListBrowserScrollScrollBar"]
+    local scrollBar = scroll.ScrollBar or _G["MountSenseBrowserScrollScrollBar"]
     if scrollBar then
         scrollBar:SetWidth(12)
     end

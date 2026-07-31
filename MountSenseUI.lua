@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Main UI Frame
+-- MountSense — Main UI Frame
 -- Creates the main window, tab system, shared style helpers, popups
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -417,7 +417,7 @@ end
 -------------------------------------------------------------------------------
 -- Static Popup Dialogs
 -------------------------------------------------------------------------------
-StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
+StaticPopupDialogs["MountSense_NEW_LIST"] = {
     text = "Enter a name for the new list:",
     button1 = "Create",
     button2 = "Cancel",
@@ -464,7 +464,7 @@ StaticPopupDialogs["MOUNTLIST_NEW_LIST"] = {
     hideOnEscape = true,
 }
 
-StaticPopupDialogs["MOUNTLIST_DELETE_LIST"] = {
+StaticPopupDialogs["MountSense_DELETE_LIST"] = {
     text = "Delete list \"%s\"?\nThis cannot be undone.",
     button1 = "Delete",
     button2 = "Cancel",
@@ -485,7 +485,7 @@ StaticPopupDialogs["MOUNTLIST_DELETE_LIST"] = {
     showAlert = true,
 }
 
-StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
+StaticPopupDialogs["MountSense_RENAME_LIST"] = {
     text = "Rename list:",
     button1 = "Rename",
     button2 = "Cancel",
@@ -537,7 +537,7 @@ StaticPopupDialogs["MOUNTLIST_RENAME_LIST"] = {
 function UI:Create()
     if self.frame then return self.frame end
 
-    local f = CreateFrame("Frame", "MountListMainFrame", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "MountSenseMainFrame", UIParent, "BackdropTemplate")
     local screenW = UIParent:GetWidth() or 1920
     local screenH = UIParent:GetHeight() or 1080
     local defW = math.floor(math.max(860, screenW * 0.6))
@@ -561,13 +561,16 @@ function UI:Create()
 
     -- Helper: force anchor to TOPLEFT so resize from BOTTOMRIGHT is stable
     local function ReanchorToTopLeft()
-        local scale = f:GetEffectiveScale()
-        local uiScale = UIParent:GetEffectiveScale()
-        local left = f:GetLeft() * scale / uiScale
-        local top = -(UIParent:GetHeight() - (f:GetTop() * scale / uiScale))
+        -- GetRect() returns pixel coords in the native UI coordinate system
+        local left  = f:GetLeft()
+        local top   = f:GetTop()
+        if not left or not top then return end
         f:ClearAllPoints()
-        f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top)
+        f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
     end
+
+    -- Ensure frame starts life with a TOPLEFT anchor (avoids jump on first resize)
+    C_Timer.After(0, function() ReanchorToTopLeft() end)
 
     -- Drag to move (title bar area)
     f:RegisterForDrag("LeftButton")
@@ -587,7 +590,7 @@ function UI:Create()
     resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
     resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
     resizeBtn:SetScript("OnMouseDown", function(self)
-        ReanchorToTopLeft()
+        ReanchorToTopLeft()   -- stabilise anchor first, THEN start sizing
         f:StartSizing("BOTTOMRIGHT")
     end)
     resizeBtn:SetScript("OnMouseUp", function(self)
@@ -596,7 +599,7 @@ function UI:Create()
     end)
 
     -- Close on Escape
-    table.insert(UISpecialFrames, "MountListMainFrame")
+    table.insert(UISpecialFrames, "MountSenseMainFrame")
 
     ---------------------------------------------------------------------------
     -- Title bar
@@ -617,7 +620,7 @@ function UI:Create()
     local title = titleBar:CreateFontString(nil, "OVERLAY")
     title:SetFont(self.FONT, 14, "")
     title:SetPoint("LEFT", 16, 0)
-    title:SetText("|cffFFB800Mount|r|cffffffffList|r")
+    title:SetText("|cffFFB800Mount|r|cffffffffSense|r")
 
     -- Version
     local version = titleBar:CreateFontString(nil, "OVERLAY")

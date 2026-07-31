@@ -1,14 +1,14 @@
 -------------------------------------------------------------------------------
--- MountList — Main Entry Point
+-- MountSense — Main Entry Point
 -- Namespace, events, slash commands, initialization
 -------------------------------------------------------------------------------
 local addonName, addon = ...
 
--- Expose globally so macros can use MountList:...
-MountList = addon
+-- Expose globally so macros can use MountSense:...
+MountSense = addon
 
 addon.version = "1.0.0"
-addon.name    = "MountList"
+addon.name    = "MountSense"
 
 -------------------------------------------------------------------------------
 -- Event handling
@@ -60,7 +60,7 @@ function addon:OnPlayerLogin()
     self.Data:BuildMountCache()
     self.Summon:CreateButton()
     self.Minimap:Create()
-    self:Print("|cffFFB800MountList|r v" .. self.version .. " loaded — |cff88ff88/ml|r to open")
+    self:Print("|cffFFB800MountSense|r v" .. self.version .. " loaded — |cff88ff88/ms|r to open")
 end
 
 function addon:OnEnteringWorld()
@@ -73,16 +73,16 @@ end
 -- Utility
 -------------------------------------------------------------------------------
 function addon:Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cffFFB800[MountList]|r " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cffFFB800[MountSense]|r " .. msg)
 end
 
 -------------------------------------------------------------------------------
 -- Slash Commands
 -------------------------------------------------------------------------------
-SLASH_MOUNTLIST1 = "/mountlist"
-SLASH_MOUNTLIST2 = "/ml"
+SLASH_MountSense1 = "/MountSense"
+SLASH_MountSense2 = "/ms"
 
-SlashCmdList["MOUNTLIST"] = function(msg)
+SlashCmdList["MountSense"] = function(msg)
     msg = (msg or ""):trim():lower()
 
     if msg == "summon" then
@@ -96,10 +96,10 @@ SlashCmdList["MOUNTLIST"] = function(msg)
 
     elseif msg == "help" then
         addon:Print("Commands:")
-        addon:Print("  /ml — Open the MountList panel")
-        addon:Print("  /ml summon — Summon a random mount from your lists")
-        addon:Print("  /ml button — Toggle the summon button")
-        addon:Print("  /ml minimap — Toggle the minimap icon")
+        addon:Print("  /ms — Open the MountSense panel")
+        addon:Print("  /ms summon — Summon a random mount from your lists")
+        addon:Print("  /ms button — Toggle the summon button")
+        addon:Print("  /ms minimap — Toggle the minimap icon")
 
     else
         addon.UI:Toggle()

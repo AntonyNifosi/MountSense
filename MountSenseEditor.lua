@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — List Editor
+-- MountSense — List Editor
 -- Left panel: list overview cards  |  Right panel: details, conditions, mounts
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -55,7 +55,7 @@ function Editor:Create(parent)
     local newBtn = addon.UI:CreateAccentButton(leftPanel, "+ New List", 100, 26)
     newBtn:SetPoint("TOPRIGHT", -8, -6)
     newBtn:SetScript("OnClick", function()
-        StaticPopup_Show("MOUNTLIST_NEW_LIST")
+        StaticPopup_Show("MountSense_NEW_LIST")
     end)
 
     -- Separator
@@ -67,12 +67,12 @@ function Editor:Create(parent)
                         addon.UI.C.border[3], 0.5)
 
     -- Scroll area for lists
-    local listScroll = CreateFrame("ScrollFrame", "MountListEditorListScroll",
+    local listScroll = CreateFrame("ScrollFrame", "MountSenseEditorListScroll",
                                     leftPanel, "UIPanelScrollFrameTemplate")
     listScroll:SetPoint("TOPLEFT", 4, -38)
     listScroll:SetPoint("BOTTOMRIGHT", -24, 4)
 
-    local scrollBar = listScroll.ScrollBar or _G["MountListEditorListScrollScrollBar"]
+    local scrollBar = listScroll.ScrollBar or _G["MountSenseEditorListScrollScrollBar"]
     if scrollBar then scrollBar:SetWidth(10) end
 
     local listScrollChild = CreateFrame("Frame", nil, listScroll)
@@ -139,7 +139,7 @@ function Editor:Create(parent)
 
     nameHeader:SetScript("OnClick", function()
         if Editor.selectedListID then
-            local dialog = StaticPopup_Show("MOUNTLIST_RENAME_LIST")
+            local dialog = StaticPopup_Show("MountSense_RENAME_LIST")
             if dialog then
                 dialog.data = Editor.selectedListID
             end
@@ -159,7 +159,7 @@ function Editor:Create(parent)
         if Editor.selectedListID then
             local list = addon.Data:GetList(Editor.selectedListID)
             if list then
-                local dialog = StaticPopup_Show("MOUNTLIST_DELETE_LIST",
+                local dialog = StaticPopup_Show("MountSense_DELETE_LIST",
                                                  list.name)
                 if dialog then
                     dialog.data = Editor.selectedListID
@@ -250,12 +250,12 @@ function Editor:Create(parent)
     self.browseBtn = browseBtn
 
     -- Mount icons scroll area
-    local mountScroll = CreateFrame("ScrollFrame", "MountListEditorMountScroll",
+    local mountScroll = CreateFrame("ScrollFrame", "MountSenseEditorMountScroll",
                                      detail, "UIPanelScrollFrameTemplate")
     self.mountScroll = mountScroll
 
     local mountScrollBar = mountScroll.ScrollBar or
-                           _G["MountListEditorMountScrollScrollBar"]
+                           _G["MountSenseEditorMountScrollScrollBar"]
     if mountScrollBar then mountScrollBar:SetWidth(10) end
 
     local mountScrollChild = CreateFrame("Frame", nil, mountScroll)

@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Minimap Button
+-- MountSense — Minimap Button
 -- Draggable button around the minimap edge
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -16,7 +16,7 @@ local MINIMAP_RADIUS = 80
 function MM:Create()
     if self.button then return end
 
-    local btn = CreateFrame("Button", "MountListMinimapButton", Minimap)
+    local btn = CreateFrame("Button", "MountSenseMinimapButton", Minimap)
     btn:SetSize(32, 32)
     btn:SetFrameStrata("MEDIUM")
     btn:SetFrameLevel(8)
@@ -93,7 +93,7 @@ function MM:Create()
     btn:SetScript("OnEnter", function(self)
         self.overlay:SetAlpha(0.3)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText("|cffFFB800MountList|r", 1, 1, 1)
+        GameTooltip:SetText("|cffFFB800MountSense|r", 1, 1, 1)
         GameTooltip:AddLine("Left-click: Open panel", 0.9, 0.9, 0.9)
         GameTooltip:AddLine("Right-click: Summon random mount", 0.9, 0.9, 0.9)
         GameTooltip:AddLine("Drag: Reposition", 0.55, 0.55, 0.6)

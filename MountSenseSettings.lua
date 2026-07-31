@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
--- MountList — Settings Panel
+-- MountSense — Settings Panel
 -- Toggle options for smart flyable conditions and 3D preview rotation
 -------------------------------------------------------------------------------
 local addonName, addon = ...
@@ -44,7 +44,7 @@ function Settings:Create(parent)
     local subtext = panel:CreateFontString(nil, "OVERLAY")
     subtext:SetFont(addon.UI.FONT, 10, "")
     subtext:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
-    subtext:SetText("Configure MountList behaviour.")
+    subtext:SetText("Configure MountSense behaviour.")
     subtext:SetTextColor(unpack(addon.UI.C.textDim))
 
     -- Separator

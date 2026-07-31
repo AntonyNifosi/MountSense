@@ -25,7 +25,7 @@ function Editor:Create(parent)
     -- LEFT PANEL — List of lists
     ---------------------------------------------------------------------------
     local leftPanel = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    leftPanel:SetWidth(240)
+    leftPanel:SetWidth(360)
     leftPanel:SetPoint("TOPLEFT", 8, -8)
     leftPanel:SetPoint("BOTTOMLEFT", 8, 8)
     leftPanel:SetBackdrop({

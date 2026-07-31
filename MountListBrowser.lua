@@ -191,7 +191,9 @@ function Browser:Create(parent)
             
             preview:SetWidth(newW)
             if Browser.model then
-                Browser.model:SetSize(newW - 20, newW - 20)
+                local modelSize = newW - 20
+                Browser.model:SetSize(modelSize, modelSize)
+                Browser.previewContainer:SetSize(newW, modelSize + 140)
             end
         end)
     end)
@@ -205,10 +207,17 @@ function Browser:Create(parent)
         self:SetScript("OnUpdate", nil)
     end)
 
+    -- Container to center content vertically
+    local previewContainer = CreateFrame("Frame", nil, preview)
+    local initialModelSize = initWidth - 20
+    previewContainer:SetSize(initWidth, initialModelSize + 140)
+    previewContainer:SetPoint("CENTER", preview, "CENTER", 0, 0)
+    self.previewContainer = previewContainer
+
     -- 3D Model
-    local model = CreateFrame("ModelScene", nil, preview, "ModelSceneMixinTemplate")
-    model:SetSize(initWidth - 20, initWidth - 20)
-    model:SetPoint("TOP", 0, -8)
+    local model = CreateFrame("ModelScene", nil, previewContainer, "ModelSceneMixinTemplate")
+    model:SetSize(initialModelSize, initialModelSize)
+    model:SetPoint("TOP", 0, 0)
     model:SetScript("OnMouseDown", function(self) self.rotating = true end)
     model:SetScript("OnMouseUp", function(self) self.rotating = false end)
     model:SetScript("OnUpdate", function(self, elapsed)
@@ -229,38 +238,42 @@ function Browser:Create(parent)
     self.model = model
 
     -- Mount name in preview
-    local previewName = preview:CreateFontString(nil, "OVERLAY")
+    local previewName = previewContainer:CreateFontString(nil, "OVERLAY")
     previewName:SetFont(addon.UI.FONT, 13, "")
-    previewName:SetPoint("TOP", model, "BOTTOM", 0, -6)
-    previewName:SetPoint("LEFT", 8, 0)
-    previewName:SetPoint("RIGHT", -8, 0)
+    previewName:SetPoint("TOP", model, "BOTTOM", 0, -20)
+    previewName:SetPoint("LEFT", 12, 0)
+    previewName:SetPoint("RIGHT", -12, 0)
     previewName:SetJustifyH("CENTER")
+    previewName:SetWordWrap(true)
+    previewName:SetMaxLines(2)
     previewName:SetTextColor(unpack(addon.UI.C.accent))
     previewName:SetText("")
     self.previewName = previewName
 
     -- Mount source in preview
-    local previewSource = preview:CreateFontString(nil, "OVERLAY")
+    local previewSource = previewContainer:CreateFontString(nil, "OVERLAY")
     previewSource:SetFont(addon.UI.FONT, 10, "")
     previewSource:SetPoint("TOP", previewName, "BOTTOM", 0, -3)
-    previewSource:SetPoint("LEFT", 8, 0)
-    previewSource:SetPoint("RIGHT", -8, 0)
+    previewSource:SetPoint("LEFT", 12, 0)
+    previewSource:SetPoint("RIGHT", -12, 0)
     previewSource:SetJustifyH("CENTER")
+    previewSource:SetWordWrap(true)
     previewSource:SetTextColor(unpack(addon.UI.C.textDim))
     self.previewSource = previewSource
 
     -- Mount type in preview
-    local previewType = preview:CreateFontString(nil, "OVERLAY")
+    local previewType = previewContainer:CreateFontString(nil, "OVERLAY")
     previewType:SetFont(addon.UI.FONT, 10, "")
     previewType:SetPoint("TOP", previewSource, "BOTTOM", 0, -2)
-    previewType:SetPoint("LEFT", 8, 0)
-    previewType:SetPoint("RIGHT", -8, 0)
+    previewType:SetPoint("LEFT", 12, 0)
+    previewType:SetPoint("RIGHT", -12, 0)
     previewType:SetJustifyH("CENTER")
+    previewType:SetWordWrap(true)
     previewType:SetTextColor(unpack(addon.UI.C.textDim))
     self.previewType = previewType
 
     -- Mount description (scrollable)
-    local previewDesc = preview:CreateFontString(nil, "OVERLAY")
+    local previewDesc = previewContainer:CreateFontString(nil, "OVERLAY")
     previewDesc:SetFont(addon.UI.FONT, 9, "")
     previewDesc:SetPoint("TOP", previewType, "BOTTOM", 0, -8)
     previewDesc:SetPoint("LEFT", 12, 0)
@@ -272,7 +285,7 @@ function Browser:Create(parent)
     self.previewDesc = previewDesc
 
     -- "No mount selected" placeholder
-    local previewPlaceholder = preview:CreateFontString(nil, "OVERLAY")
+    local previewPlaceholder = previewContainer:CreateFontString(nil, "OVERLAY")
     previewPlaceholder:SetFont(addon.UI.FONT, 11, "")
     previewPlaceholder:SetPoint("CENTER")
     previewPlaceholder:SetText("Hover a mount\nto preview")
@@ -749,6 +762,7 @@ function Browser:ShowPreview(mountData)
         end
         if actor and mountData.creatureDisplayID then
             actor:SetModelByCreatureDisplayID(mountData.creatureDisplayID)
+            actor:SetScale(1.116)
         end
     elseif mountData.creatureDisplayID and mountData.creatureDisplayID > 0 then
         local actor = self.model:GetActorAtIndex(1)
@@ -757,6 +771,7 @@ function Browser:ShowPreview(mountData)
         end
         if actor then
             actor:SetModelByCreatureDisplayID(mountData.creatureDisplayID)
+            actor:SetScale(1.116)
         end
     end
 end

@@ -110,6 +110,15 @@ function UI:CreateDangerButton(parent, text, width, height)
     return btn
 end
 
+--- Create a section header label
+function UI:CreateSectionHeader(parent, text)
+    local label = parent:CreateFontString(nil, "OVERLAY")
+    label:SetFont(self.FONT, 10, "")
+    label:SetText(string.upper(text))
+    label:SetTextColor(self.C.accent[1], self.C.accent[2], self.C.accent[3], 0.7)
+    return label
+end
+
 --- Create a search / text input
 function UI:CreateEditBox(parent, width, height, placeholder)
     local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
@@ -661,8 +670,9 @@ function UI:Create()
 
     -- Tab definitions
     local tabDefs = {
-        { key = "lists",   label = "My Lists",  icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue" },
-        { key = "browser", label = "Browse",     icon = "Interface\\Icons\\Tracking_WildPet" },
+        { key = "lists",    label = "My Lists",  icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue" },
+        { key = "browser",  label = "Browse",     icon = "Interface\\Icons\\Tracking_WildPet" },
+        { key = "settings", label = "Settings",   icon = "Interface\\Icons\\inv_misc_wrench_01" },
     }
 
     f.tabs = {}
@@ -745,13 +755,20 @@ function UI:Create()
     browserFrame:Hide()
     f.tabFrames["browser"] = browserFrame
 
+    -- Settings tab
+    local settingsFrame = CreateFrame("Frame", nil, content)
+    settingsFrame:SetAllPoints()
+    settingsFrame:Hide()
+    f.tabFrames["settings"] = settingsFrame
+
     self.frame = f
     f:Hide()
 
     -- Build tab content
     C_Timer.After(0, function()
-        if addon.Editor then addon.Editor:Create(listsFrame) end
-        if addon.Browser then addon.Browser:Create(browserFrame) end
+        if addon.Editor   then addon.Editor:Create(listsFrame)       end
+        if addon.Browser  then addon.Browser:Create(browserFrame)    end
+        if addon.Settings then addon.Settings:Create(settingsFrame)  end
         -- Default tab
         self:SwitchTab("lists")
     end)
@@ -791,6 +808,8 @@ function UI:SwitchTab(key)
         addon.Editor:Refresh()
     elseif key == "browser" and addon.Browser then
         addon.Browser:Refresh()
+    elseif key == "settings" and addon.Settings then
+        addon.Settings:Refresh()
     end
 end
 

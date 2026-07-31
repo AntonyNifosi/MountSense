@@ -322,11 +322,33 @@ function Editor:CreateListButton(parent, index)
     -- List name
     local name = btn:CreateFontString(nil, "OVERLAY")
     name:SetFont(addon.UI.FONT, 12, "")
-    name:SetPoint("TOPLEFT", 10, -8)
+    name:SetPoint("TOPLEFT", 26, -8)
     name:SetPoint("TOPRIGHT", -40, -8)
     name:SetJustifyH("LEFT")
     name:SetTextColor(unpack(addon.UI.C.text))
     btn.nameText = name
+
+    -- Drag handle (3 horizontal texture lines — font-safe alternative to ≡)
+    local gripContainer = CreateFrame("Frame", nil, btn)
+    gripContainer:SetSize(12, 14)
+    gripContainer:SetPoint("LEFT", 6, 0)
+    btn.grip = gripContainer
+
+    local lineColor = { unpack(addon.UI.C.textDim) }
+    for i = 0, 2 do
+        local line = gripContainer:CreateTexture(nil, "OVERLAY")
+        line:SetHeight(2)
+        line:SetPoint("TOPLEFT", 0, -(i * 5))
+        line:SetPoint("TOPRIGHT", 0, -(i * 5))
+        line:SetColorTexture(lineColor[1], lineColor[2], lineColor[3], 0.7)
+        gripContainer["line" .. i] = line
+    end
+
+    function gripContainer:SetLineColor(r, g, b, a)
+        for i = 0, 2 do
+            self["line" .. i]:SetColorTexture(r, g, b, a or 0.9)
+        end
+    end
 
     -- Mount count
     local count = btn:CreateFontString(nil, "OVERLAY")
@@ -353,23 +375,177 @@ function Editor:CreateListButton(parent, index)
     indicator:Hide()
     btn.indicator = indicator
 
-    btn:SetScript("OnClick", function(self)
-        Editor:SelectList(self.listID)
+    -- Drop indicator line (shown between items during drag)
+    local dropLine = btn:CreateTexture(nil, "OVERLAY")
+    dropLine:SetHeight(2)
+    dropLine:SetPoint("TOPLEFT", 4, 1)
+    dropLine:SetPoint("TOPRIGHT", -4, 1)
+    dropLine:SetColorTexture(unpack(addon.UI.C.accent))
+    dropLine:Hide()
+    btn.dropLine = dropLine
+
+    ---------------------------------------------------------------------------
+    -- Drag & Drop logic
+    ---------------------------------------------------------------------------
+    btn:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        self.mouseDownX, self.mouseDownY = GetCursorPosition()
+        self.dragging = false
+    end)
+
+    btn:SetScript("OnUpdate", function(self)
+        if not self.mouseDownX then return end
+        if self.dragging then return end
+        -- Detect drag threshold (10px movement)
+        local x, y = GetCursorPosition()
+        local dx = math.abs(x - self.mouseDownX)
+        local dy = math.abs(y - self.mouseDownY)
+        if dx > 10 or dy > 10 then
+            self.dragging = true
+            Editor:StartDrag(self)
+        end
+    end)
+
+    btn:SetScript("OnMouseUp", function(self, button)
+        if button ~= "LeftButton" then return end
+        if not self.dragging then
+            -- It was a click, not a drag
+            Editor:SelectList(self.listID)
+        end
+        self.mouseDownX = nil
+        self.mouseDownY = nil
+        self.dragging = false
     end)
 
     btn:SetScript("OnEnter", function(self)
+        self.grip:SetLineColor(addon.UI.C.accent[1], addon.UI.C.accent[2], addon.UI.C.accent[3], 1)
         if Editor.selectedListID ~= self.listID then
             self:SetBackdropColor(unpack(addon.UI.C.bgCardHover))
+        end
+        -- Show drop line if we're dragging something else
+        if Editor.draggingBtn and Editor.draggingBtn ~= self then
+            self.dropLine:Show()
+            Editor.dropTarget = self
         end
     end)
 
     btn:SetScript("OnLeave", function(self)
+        local c = addon.UI.C.textDim
+        self.grip:SetLineColor(c[1], c[2], c[3], 0.7)
         if Editor.selectedListID ~= self.listID then
             self:SetBackdropColor(unpack(addon.UI.C.bgCard))
         end
+        self.dropLine:Hide()
     end)
 
     return btn
+end
+
+-------------------------------------------------------------------------------
+-- Drag helpers
+-------------------------------------------------------------------------------
+function Editor:StartDrag(sourceBtn)
+    self.draggingBtn = sourceBtn
+    self.dropTarget  = nil
+
+    -- Ghost frame that follows the cursor
+    if not self.dragGhost then
+        local ghost = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+        ghost:SetHeight(52)
+        ghost:SetWidth(320)
+        ghost:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8x8",
+            edgeFile = "Interface\\Buttons\\WHITE8x8",
+            edgeSize = 1,
+        })
+        ghost:SetBackdropColor(0.15, 0.15, 0.22, 0.85)
+        ghost:SetBackdropBorderColor(unpack(addon.UI.C.accent))
+        ghost:SetFrameStrata("TOOLTIP")
+        ghost:SetFrameLevel(200)
+
+        local ghostText = ghost:CreateFontString(nil, "OVERLAY")
+        ghostText:SetFont(addon.UI.FONT, 12, "")
+        ghostText:SetPoint("LEFT", 12, 0)
+        ghostText:SetTextColor(unpack(addon.UI.C.accent))
+        ghost.text = ghostText
+        self.dragGhost = ghost
+    end
+
+    self.dragGhost.text:SetText(sourceBtn.nameText:GetText())
+    self.dragGhost:Show()
+
+    -- Highlight source as being dragged
+    sourceBtn:SetBackdropBorderColor(unpack(addon.UI.C.accent))
+    sourceBtn:SetAlpha(0.5)
+
+    -- Track cursor + drop in OnUpdate
+    self.dragGhost:SetScript("OnUpdate", function(ghost)
+        local x, y = GetCursorPosition()
+        local s = UIParent:GetEffectiveScale()
+        ghost:ClearAllPoints()
+        ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / s, y / s + 30)
+
+        if not IsMouseButtonDown("LeftButton") then
+            Editor:StopDrag()
+        end
+    end)
+end
+
+function Editor:StopDrag()
+    local sourceBtn = self.draggingBtn
+    local targetBtn = self.dropTarget
+
+    -- Clean up ghost
+    if self.dragGhost then
+        self.dragGhost:Hide()
+        self.dragGhost:SetScript("OnUpdate", nil)
+    end
+
+    -- Restore source appearance
+    if sourceBtn then
+        sourceBtn:SetAlpha(1.0)
+        self:SetupListButton(sourceBtn, sourceBtn.listID,
+                             addon.Data:GetList(sourceBtn.listID))
+    end
+
+    -- Hide all drop lines
+    for _, btn in ipairs(self.listButtons) do
+        if btn.dropLine then btn.dropLine:Hide() end
+    end
+
+    -- Apply reorder if we have a valid target
+    if sourceBtn and targetBtn and sourceBtn.listID ~= targetBtn.listID then
+        self:ApplyDragReorder(sourceBtn.listID, targetBtn.listID)
+    end
+
+    self.draggingBtn = nil
+    self.dropTarget  = nil
+end
+
+function Editor:ApplyDragReorder(sourceID, targetID)
+    -- Build current ordered list
+    local sorted = addon.Data:GetSortedLists()
+    local orderedIDs = {}
+    for _, entry in ipairs(sorted) do
+        orderedIDs[#orderedIDs + 1] = entry.id
+    end
+
+    -- Find positions
+    local srcPos, tgtPos
+    for i, id in ipairs(orderedIDs) do
+        if id == sourceID then srcPos = i end
+        if id == targetID then tgtPos = i end
+    end
+
+    if not srcPos or not tgtPos then return end
+
+    -- Move source to target position
+    table.remove(orderedIDs, srcPos)
+    table.insert(orderedIDs, tgtPos, sourceID)
+
+    addon.Data:ReorderLists(orderedIDs)
+    self:Refresh()
+    addon.Summon:UpdateMount()
 end
 
 function Editor:SetupListButton(btn, listID, list)

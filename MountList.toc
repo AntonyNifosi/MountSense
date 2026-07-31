@@ -12,5 +12,6 @@ MountListSummon.lua
 MountListUI.lua
 MountListBrowser.lua
 MountListEditor.lua
+MountListSettings.lua
 MountListMinimap.lua
 MountList.lua

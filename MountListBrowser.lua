@@ -230,10 +230,18 @@ function Browser:Create(parent)
     local model = CreateFrame("ModelScene", nil, previewContainer, "ModelSceneMixinTemplate")
     model:SetSize(initialModelSize, initialModelSize)
     model:SetPoint("TOP", 0, 0)
-    model:SetScript("OnMouseDown", function(self) self.rotating = true end)
+    model:SetScript("OnMouseDown", function(self)
+        self.rotating = true
+        self.autoRotateStarted = false  -- manual drag cancels auto-rotate
+        if self.autoRotateTimer then
+            self.autoRotateTimer:Cancel()
+            self.autoRotateTimer = nil
+        end
+    end)
     model:SetScript("OnMouseUp", function(self) self.rotating = false end)
     model:SetScript("OnUpdate", function(self, elapsed)
         if self.rotating then
+            -- Manual drag rotation
             local x, y = GetCursorPosition()
             if self.lastX then
                 local dx = (x - self.lastX) * 0.02
@@ -245,6 +253,14 @@ function Browser:Create(parent)
             self.lastX = x
         else
             self.lastX = nil
+            -- Auto-rotation after 2s hover (if enabled)
+            local opts = addon.Data.db and addon.Data.db.options
+            if self.autoRotateStarted and opts and opts.previewRotation then
+                local actor = self:GetActorByTag("unwrapped") or self:GetActorAtIndex(1)
+                if actor then
+                    actor:SetYaw(actor:GetYaw() + elapsed * 0.5)
+                end
+            end
         end
     end)
     self.model = model
@@ -772,6 +788,22 @@ end
 -------------------------------------------------------------------------------
 function Browser:ShowPreview(mountData)
     if not mountData then return end
+
+    -- Reset auto-rotation for new mount
+    local m = self.model
+    m.autoRotateStarted = false
+    if m.autoRotateTimer then
+        m.autoRotateTimer:Cancel()
+        m.autoRotateTimer = nil
+    end
+    -- Start 2s timer to enable auto-rotation
+    local opts = addon.Data.db and addon.Data.db.options
+    if opts and opts.previewRotation then
+        m.autoRotateTimer = C_Timer.NewTimer(2, function()
+            m.autoRotateStarted = true
+            m.autoRotateTimer = nil
+        end)
+    end
 
     self.previewPlaceholder:Hide()
     self.previewName:SetText(mountData.name)

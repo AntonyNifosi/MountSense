@@ -158,7 +158,7 @@ function Summon:PickRandomMount()
         end
     end
 
-    -- Gather unique, collected mount IDs
+    -- Gather unique, collected and usable mount IDs
     local allMounts = {}
     local seen = {}
     for _, entry in ipairs(matchingLists) do
@@ -173,6 +173,33 @@ function Summon:PickRandomMount()
                     end
                 end
             end
+        end
+    end
+
+    -- Smart flyable zone filter
+    local opts = addon.Data.db.options
+    if opts and opts.smartFlyable and #allMounts > 0 then
+        local canFly = addon.Conditions:CanFly()
+        local filtered = {}
+        for _, mountID in ipairs(allMounts) do
+            local data = addon.Data:GetMountData(mountID)
+            if data then
+                if canFly then
+                    -- In flyable zone: prefer FLYING mounts
+                    if data.category == "FLYING" then
+                        filtered[#filtered + 1] = mountID
+                    end
+                else
+                    -- In non-flyable zone: exclude FLYING mounts
+                    if data.category ~= "FLYING" then
+                        filtered[#filtered + 1] = mountID
+                    end
+                end
+            end
+        end
+        -- Only apply the filter if it yields at least one mount
+        if #filtered > 0 then
+            allMounts = filtered
         end
     end
 

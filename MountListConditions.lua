@@ -20,6 +20,11 @@ function Conditions:GetCurrentContext()
     return instanceType
 end
 
+function Conditions:CanFly()
+    -- Returns true if the player is currently in a zone where flying is allowed
+    return (IsFlyableArea() or IsAdvancedFlyableArea()) and true or false
+end
+
 -------------------------------------------------------------------------------
 -- Specialisation helpers
 -------------------------------------------------------------------------------

@@ -18,8 +18,10 @@ Data.defaults = {
     minimap = { hide = false, minimapPos = 220 },
     summonButton = { point = "CENTER", x = 0, y = -200, show = true },
     options = {
-        showButton = true,
-        previewWidth = nil,  -- nil = auto (30% of available width)
+        showButton      = true,
+        previewWidth    = nil,   -- nil = auto (30% of available width)
+        smartFlyable    = true,  -- prefer flying mounts in flyable zones
+        previewRotation = true,  -- auto-rotate 3D model after 2s hover
     },
 }
 
@@ -380,4 +382,12 @@ function Data:GetListCount()
         count = count + 1
     end
     return count
+end
+
+function Data:ReorderLists(orderedIDs)
+    for i, id in ipairs(orderedIDs) do
+        if self.db.lists[id] then
+            self.db.lists[id].priority = i
+        end
+    end
 end

@@ -520,8 +520,8 @@ function UI:Create()
     local f = CreateFrame("Frame", "MountListMainFrame", UIParent, "BackdropTemplate")
     local screenW = UIParent:GetWidth() or 1920
     local screenH = UIParent:GetHeight() or 1080
-    local defW = math.floor(math.min(1400, math.max(860, screenW * 0.7)))
-    local defH = math.floor(math.min(900, math.max(560, screenH * 0.7)))
+    local defW = math.floor(math.min(1400, math.max(860, screenW * 0.5)))
+    local defH = math.floor(math.min(900, math.max(560, screenH * 0.5)))
     f:SetSize(defW, defH)
     f:SetPoint("CENTER")
     f:SetBackdrop({

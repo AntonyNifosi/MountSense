@@ -15,16 +15,14 @@ Summon.lastMountID = nil
 function Summon:CreateButton()
     if self.button then return end
 
-    local btn = CreateFrame("Button", "MountListSummonButton", UIParent, "SecureActionButtonTemplate")
-    btn:SetSize(44, 44)
-    btn:SetFrameStrata("MEDIUM")
-    btn:SetFrameLevel(50)
-    btn:SetClampedToScreen(true)
+    if not addon.UI.frame then
+        addon.UI:Create()
+    end
+    local parent = addon.UI.frame.sidebar
 
-    -- Position from saved data
-    local pos = addon.Data.db.summonButton
-    btn:SetPoint(pos.point or "CENTER", UIParent, pos.point or "CENTER",
-                 pos.x or 0, pos.y or -200)
+    local btn = CreateFrame("Button", "MountListSummonButton", parent, "SecureActionButtonTemplate")
+    btn:SetSize(44, 44)
+    btn:SetPoint("BOTTOM", parent, "BOTTOM", 0, 24)
 
     -- Secure attributes
     btn:SetAttribute("type1", "macro")
@@ -103,28 +101,14 @@ function Summon:CreateButton()
     end
 
     btn:SetScript("OnDragStart", function(self)
-        if IsAltKeyDown() and not InCombatLockdown() then
-            self:StartMoving()
-        else
-            -- Allow user to drag the macro to action bars!
-            EnsureAndPickupMacro()
-        end
-    end)
-
-    btn:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        local point, _, _, x, y = self:GetPoint()
-        addon.Data.db.summonButton.point = point
-        addon.Data.db.summonButton.x     = x
-        addon.Data.db.summonButton.y     = y
+        -- Allow user to drag the macro to action bars!
+        EnsureAndPickupMacro()
     end)
 
     btn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText("|cffFFB800MountList|r", 1, 1, 1)
-        GameTooltip:AddLine("Left Click to summon a random mount", 0.9, 0.9, 0.9)
         GameTooltip:AddLine("Drag to action bar to place macro", 0.0, 1.0, 0.5)
-        GameTooltip:AddLine("Alt+Drag to move this button", 0.55, 0.55, 0.6)
         if Summon.lastMountID then
             local data = addon.Data:GetMountData(Summon.lastMountID)
             if data then
@@ -159,13 +143,6 @@ function Summon:CreateButton()
     end)
 
     self.button = btn
-
-    -- Visibility
-    if addon.Data.db.options and addon.Data.db.options.showButton == false then
-        btn:Hide()
-    end
-
-    -- Pick initial mount
     self:PickRandomMount()
 end
 

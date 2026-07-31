@@ -206,7 +206,7 @@ function Browser:Create(parent)
     end)
 
     -- 3D Model
-    local model = CreateFrame("PlayerModel", nil, preview)
+    local model = CreateFrame("ModelScene", nil, preview, "ModelSceneMixinTemplate")
     model:SetSize(initWidth - 20, initWidth - 20)
     model:SetPoint("TOP", 0, -8)
     model:SetScript("OnMouseDown", function(self) self.rotating = true end)
@@ -216,7 +216,10 @@ function Browser:Create(parent)
             local x, y = GetCursorPosition()
             if self.lastX then
                 local dx = (x - self.lastX) * 0.02
-                self:SetFacing(self:GetFacing() + dx)
+                local actor = self:GetActorByTag("unwrapped") or self:GetActorAtIndex(1)
+                if actor then
+                    actor:SetYaw(actor:GetYaw() + dx)
+                end
             end
             self.lastX = x
         else
@@ -735,12 +738,25 @@ function Browser:ShowPreview(mountData)
     self.previewDesc:SetText(mountData.description or "")
 
     -- Set 3D model
-    if mountData.creatureDisplayID and mountData.creatureDisplayID > 0 then
-        self.model:ClearModel()
-        self.model:SetDisplayInfo(mountData.creatureDisplayID)
-        self.model:SetPortraitZoom(0)
-        self.model:SetCamDistanceScale(1.2)
-        self.model:SetFacing(math.rad(-20))
-        self.model:SetPosition(0, 0, -0.2)
+    if mountData.uiModelSceneID and mountData.uiModelSceneID > 0 then
+        self.model:TransitionToModelSceneID(mountData.uiModelSceneID, 2, 2, true)
+        local actor = self.model:GetActorByTag("unwrapped") or self.model:GetActorAtIndex(1)
+        if not actor then
+            actor = self.model:AcquireActor("ModelSceneActorTemplate")
+            if actor then
+                actor:SetTag("unwrapped")
+            end
+        end
+        if actor and mountData.creatureDisplayID then
+            actor:SetModelByCreatureDisplayID(mountData.creatureDisplayID)
+        end
+    elseif mountData.creatureDisplayID and mountData.creatureDisplayID > 0 then
+        local actor = self.model:GetActorAtIndex(1)
+        if not actor then
+            actor = self.model:AcquireActor("ModelSceneActorTemplate")
+        end
+        if actor then
+            actor:SetModelByCreatureDisplayID(mountData.creatureDisplayID)
+        end
     end
 end

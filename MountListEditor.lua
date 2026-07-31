@@ -195,36 +195,16 @@ function Editor:Create(parent)
     contextLabel:SetText("Context:")
     contextLabel:SetTextColor(unpack(addon.UI.C.textDim))
 
+    self.contextLabel = contextLabel
     self.contextCheckboxes = {}
-    local cbX = 0
-    local cbY = -6
-    local cbRow = 0
 
     for i, info in ipairs(addon.Data.CONTEXT_INFO) do
         local cb = addon.UI:CreateCheckbox(detail, info.label, 16)
-        if cbRow == 0 then
-            cb:SetPoint("TOPLEFT", contextLabel, "BOTTOMLEFT", cbX, cbY)
-        else
-            local prevCb = self.contextCheckboxes[i - 1]
-            if cbX > 300 then
-                cbX = 0
-                cbRow = cbRow + 1
-                cb:SetPoint("TOPLEFT", self.contextCheckboxes[1],
-                            "BOTTOMLEFT", 0, -6)
-            else
-                cb:SetPoint("LEFT", prevCb, "RIGHT", 10, 0)
-            end
-        end
         cb.contextKey = info.key
         cb.onToggle = function(self, checked)
             Editor:SaveConditions()
         end
         self.contextCheckboxes[i] = cb
-        cbX = cbX + 110
-        if cbX > 320 then
-            cbX = 0
-            cbRow = cbRow + 1
-        end
     end
 
     -- Spec section
@@ -234,16 +214,12 @@ function Editor:Create(parent)
     specLabel:SetTextColor(unpack(addon.UI.C.textDim))
     self.specLabel = specLabel
 
-    -- Position spec label below last context row
-    local lastCtxCb = self.contextCheckboxes[#self.contextCheckboxes]
-    if lastCtxCb then
-        specLabel:SetPoint("TOPLEFT", contextLabel, "BOTTOMLEFT", 0, -34)
-    else
-        specLabel:SetPoint("TOPLEFT", contextLabel, "BOTTOMLEFT", 0, -10)
-    end
-
     self.specCheckboxes = {}
     -- Spec checkboxes will be created dynamically in Refresh
+    
+    detail:SetScript("OnSizeChanged", function()
+        Editor:UpdateLayout()
+    end)
 
     ---------------------------------------------------------------------------
     -- MOUNTS SECTION
@@ -476,14 +452,7 @@ function Editor:RefreshDetailPanel()
     self:RefreshSpecCheckboxes(list)
 
     -- Position mount section below specs
-    local specAnchor = self.specLabel
-    if #self.specCheckboxes > 0 then
-        specAnchor = self.specCheckboxes[#self.specCheckboxes]
-    end
-
-    self.mountSep:ClearAllPoints()
-    self.mountSep:SetPoint("TOPLEFT", specAnchor, "BOTTOMLEFT", -4, -12)
-    self.mountSep:SetPoint("RIGHT", self.detail, "RIGHT", -8, 0)
+    self:UpdateLayout()
 
     self.mountHeader:ClearAllPoints()
     self.mountHeader:SetPoint("TOPLEFT", self.mountSep, "BOTTOMLEFT", 4, -8)
@@ -529,12 +498,7 @@ function Editor:RefreshSpecCheckboxes(list)
             Editor:SaveConditions()
         end
 
-        -- Position
-        if i == 1 then
-            cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", 0, -6)
-        else
-            cb:SetPoint("LEFT", self.specCheckboxes[i - 1], "RIGHT", 10, 0)
-        end
+        -- Position will be handled by UpdateLayout
 
         -- Checked state
         local found = false
@@ -691,4 +655,72 @@ function Editor:CreateMountIcon(parent, index)
     end)
 
     return btn
+end
+
+-------------------------------------------------------------------------------
+-- Dynamic Layout for Checkboxes
+-------------------------------------------------------------------------------
+function Editor:UpdateLayout()
+    if not self.detail:IsShown() then return end
+    
+    local width = self.detail:GetWidth() - 24
+    if width < 100 then width = 300 end
+    
+    -- Layout contexts
+    local cbX = 0
+    local cbY = -6
+    for i, cb in ipairs(self.contextCheckboxes) do
+        cb:ClearAllPoints()
+        local cbWidth = cb.label:GetStringWidth() + 24
+        if cbWidth < 90 then cbWidth = 90 end
+        
+        if i == 1 then
+            cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
+        else
+            if cbX + cbWidth > width then
+                cbX = 0
+                cbY = cbY - 24
+            end
+            cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
+        end
+        cbX = cbX + cbWidth + 10
+    end
+    
+    -- Position specLabel below contexts
+    self.specLabel:ClearAllPoints()
+    self.specLabel:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", 0, cbY - 28)
+    
+    -- Layout specs
+    cbX = 0
+    local specY = -6
+    local hasSpecs = false
+    if self.specCheckboxes then
+        for i, cb in ipairs(self.specCheckboxes) do
+            if not cb:IsShown() then break end
+            hasSpecs = true
+            cb:ClearAllPoints()
+            local cbWidth = cb.label:GetStringWidth() + 24
+            if cbWidth < 80 then cbWidth = 80 end
+            
+            if i == 1 then
+                cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
+            else
+                if cbX + cbWidth > width then
+                    cbX = 0
+                    specY = specY - 24
+                end
+                cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
+            end
+            cbX = cbX + cbWidth + 10
+        end
+    end
+    
+    -- Position mountSep below specs
+    self.mountSep:ClearAllPoints()
+    if hasSpecs then
+        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, specY - 16)
+    else
+        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, -12)
+    end
+    self.mountSep:SetPoint("RIGHT", self.detail, "RIGHT", -8, 0)
 end

@@ -55,15 +55,17 @@ end
 -------------------------------------------------------------------------------
 function Conditions:EvaluateList(list)
     if not list or not list.conditions then
-        return true
+        return true, false
     end
 
     local conditions = list.conditions
     local contextMatch = true
     local specMatch    = true
+    local isStrict     = false
 
     -- Context check
     if conditions.contexts and #conditions.contexts > 0 then
+        isStrict = true
         local current = self:GetCurrentContext()
         contextMatch = false
         for _, ctx in ipairs(conditions.contexts) do
@@ -76,6 +78,7 @@ function Conditions:EvaluateList(list)
 
     -- Spec check
     if conditions.specs and #conditions.specs > 0 then
+        isStrict = true
         local currentSpecID = self:GetCurrentSpec()
         specMatch = false
         if currentSpecID then
@@ -88,21 +91,32 @@ function Conditions:EvaluateList(list)
         end
     end
 
-    return contextMatch and specMatch
+    return (contextMatch and specMatch), isStrict
 end
 
 -------------------------------------------------------------------------------
 -- Get all lists that match current conditions (and have mounts)
 -------------------------------------------------------------------------------
 function Conditions:GetMatchingLists()
-    local matching = {}
+    local strictMatches = {}
+    local globalMatches = {}
     local allLists = addon.Data:GetAllLists()
 
     for id, list in pairs(allLists) do
-        if self:EvaluateList(list) and #list.mounts > 0 then
-            matching[#matching + 1] = { id = id, list = list }
+        if #list.mounts > 0 then
+            local isMatch, isStrict = self:EvaluateList(list)
+            if isMatch then
+                if isStrict then
+                    strictMatches[#strictMatches + 1] = { id = id, list = list }
+                else
+                    globalMatches[#globalMatches + 1] = { id = id, list = list }
+                end
+            end
         end
     end
 
-    return matching
+    if #strictMatches > 0 then
+        return strictMatches
+    end
+    return globalMatches
 end

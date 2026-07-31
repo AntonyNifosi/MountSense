@@ -196,7 +196,10 @@ function Summon:PickRandomMount()
                 seen[mountID] = true
                 local data = addon.Data:GetMountData(mountID)
                 if data and data.isCollected then
-                    allMounts[#allMounts + 1] = mountID
+                    local _, _, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
+                    if isUsable then
+                        allMounts[#allMounts + 1] = mountID
+                    end
                 end
             end
         end

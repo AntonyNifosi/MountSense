@@ -523,7 +523,7 @@ function UI:Create()
     local defW = math.floor(math.max(860, screenW * 0.6))
     local defH = math.floor(math.max(560, screenH * 0.7))
     f:SetSize(defW, defH)
-    f:SetPoint("CENTER")
+    f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", (screenW - defW) / 2, -(screenH - defH) / 2)
     f:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Buttons\\WHITE8x8",
@@ -539,10 +539,25 @@ function UI:Create()
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(10)
 
+    -- Helper: force anchor to TOPLEFT so resize from BOTTOMRIGHT is stable
+    local function ReanchorToTopLeft()
+        local scale = f:GetEffectiveScale()
+        local uiScale = UIParent:GetEffectiveScale()
+        local left = f:GetLeft() * scale / uiScale
+        local top = -(UIParent:GetHeight() - (f:GetTop() * scale / uiScale))
+        f:ClearAllPoints()
+        f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top)
+    end
+
     -- Drag to move (title bar area)
     f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:SetScript("OnDragStart", function(self)
+        self:StartMoving()
+    end)
+    f:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        ReanchorToTopLeft()
+    end)
 
     -- Resize handle (bottom-right corner)
     local resizeBtn = CreateFrame("Button", nil, f)
@@ -552,17 +567,12 @@ function UI:Create()
     resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
     resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
     resizeBtn:SetScript("OnMouseDown", function(self)
-        local uiLeft = UIParent:GetLeft() or 0
-        local uiBottom = UIParent:GetBottom() or 0
-        local left = f:GetLeft() - uiLeft
-        local top = f:GetTop() - uiBottom
-        
-        f:ClearAllPoints()
-        f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+        ReanchorToTopLeft()
         f:StartSizing("BOTTOMRIGHT")
     end)
     resizeBtn:SetScript("OnMouseUp", function(self)
         f:StopMovingOrSizing()
+        ReanchorToTopLeft()
     end)
 
     -- Close on Escape

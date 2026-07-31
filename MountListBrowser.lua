@@ -131,6 +131,18 @@ function Browser:Create(parent)
         Browser:Refresh()
     end
     self.collectedCB = collectedCB
+    Browser.collectedOnly = true
+
+    -- Usable toggle
+    local usableCB = addon.UI:CreateCheckbox(filterBar, "Usable", 16)
+    usableCB:SetPoint("RIGHT", collectedCB, "LEFT", -70, 0)
+    usableCB:SetChecked(true)
+    usableCB.onToggle = function(self, checked)
+        Browser.usableOnly = checked
+        Browser:Refresh()
+    end
+    self.usableCB = usableCB
+    Browser.usableOnly = true
 
     ---------------------------------------------------------------------------
     -- Main area: Grid (left) + Preview (right)
@@ -420,7 +432,8 @@ function Browser:Refresh()
         self.searchText,
         self.filterType,
         self.sortBy,
-        self.collectedOnly
+        self.collectedOnly,
+        self.usableOnly
     )
 
     self:BuildCards()

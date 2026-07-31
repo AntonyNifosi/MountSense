@@ -323,7 +323,7 @@ function Editor:CreateListButton(parent, index)
     local name = btn:CreateFontString(nil, "OVERLAY")
     name:SetFont(addon.UI.FONT, 12, "")
     name:SetPoint("TOPLEFT", 10, -8)
-    name:SetPoint("TOPRIGHT", -10, -8)
+    name:SetPoint("TOPRIGHT", -40, -8)
     name:SetJustifyH("LEFT")
     name:SetTextColor(unpack(addon.UI.C.text))
     btn.nameText = name
@@ -331,15 +331,16 @@ function Editor:CreateListButton(parent, index)
     -- Mount count
     local count = btn:CreateFontString(nil, "OVERLAY")
     count:SetFont(addon.UI.FONT, 9, "")
-    count:SetPoint("BOTTOMLEFT", 10, 7)
+    count:SetPoint("TOPRIGHT", -10, -9)
     count:SetTextColor(unpack(addon.UI.C.textDim))
     btn.countText = count
 
     -- Condition badges area
     local badges = btn:CreateFontString(nil, "OVERLAY")
     badges:SetFont(addon.UI.FONT, 8, "")
+    badges:SetPoint("BOTTOMLEFT", 10, 7)
     badges:SetPoint("BOTTOMRIGHT", -10, 7)
-    badges:SetJustifyH("RIGHT")
+    badges:SetJustifyH("LEFT")
     badges:SetTextColor(unpack(addon.UI.C.textDim))
     btn.badgesText = badges
 

@@ -184,6 +184,7 @@ function Data:BuildMountCache()
                 description        = description,
                 source             = source,
                 isFavorite         = isFavorite,
+                isUsable           = isUsable,
                 uiModelSceneID    = uiModelSceneID,
             }
 
@@ -208,13 +209,17 @@ end
 -------------------------------------------------------------------------------
 -- Filtered & Sorted mount retrieval
 -------------------------------------------------------------------------------
-function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly)
+function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, usableOnly)
     local results = {}
 
     for _, data in pairs(self.mountCache) do
         local include = true
 
         if collectedOnly and not data.isCollected then
+            include = false
+        end
+
+        if include and usableOnly and not data.isUsable then
             include = false
         end
 

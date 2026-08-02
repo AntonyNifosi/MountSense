@@ -22,7 +22,23 @@ end
 
 function Conditions:CanFly()
     -- Returns true if the player is currently in a zone where flying is allowed
-    return (IsFlyableArea() or IsAdvancedFlyableArea()) and true or false
+    local zoneName = GetRealZoneText()
+    if zoneName and zoneName:find("Quel'Danas") then
+        return false
+    end
+
+    local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    if mapID then
+        -- Workaround for WoW API bug where IsAdvancedFlyableArea() incorrectly returns true
+        -- in The Burning Crusade starting zones (which do not support any form of flying)
+        local noFly = {
+            [94] = true, [95] = true, [110] = true, -- Blood Elf zones (Eversong, Ghostlands, Silvermoon)
+            [97] = true, [106] = true, [114] = true, -- Draenei zones (Azuremyst, Bloodmyst, Exodar)
+        }
+        if noFly[mapID] then return false end
+    end
+
+    return (IsFlyableArea() or (IsAdvancedFlyableArea and IsAdvancedFlyableArea())) and true or false
 end
 
 -------------------------------------------------------------------------------

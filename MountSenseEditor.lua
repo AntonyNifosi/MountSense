@@ -216,7 +216,7 @@ function Editor:Create(parent)
 
     self.specCheckboxes = {}
     -- Spec checkboxes will be created dynamically in Refresh
-    
+
     detail:SetScript("OnSizeChanged", function()
         Editor:UpdateLayout()
     end)
@@ -244,7 +244,11 @@ function Editor:Create(parent)
         if addon.Browser and addon.Browser.listDD then
             addon.Browser.targetListID = Editor.selectedListID
             addon.Browser.listDD:SetValue(Editor.selectedListID, true)
-            addon.Browser:UpdateCards()
+            if addon.Browser.hideInList then
+                addon.Browser:Refresh()
+            else
+                addon.Browser:UpdateCards()
+            end
         end
     end)
     self.browseBtn = browseBtn
@@ -589,6 +593,9 @@ function Editor:SelectList(listID)
     self.selectedListID = listID
     self:RefreshListPanel()
     self:RefreshDetailPanel()
+    if addon.Browser then
+        addon.Browser:Refresh()
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -686,7 +693,6 @@ function Editor:RefreshSpecCheckboxes(list)
         cb:Show()
     end
 end
-
 -------------------------------------------------------------------------------
 -- Save conditions from checkboxes
 -------------------------------------------------------------------------------
@@ -888,7 +894,6 @@ function Editor:UpdateLayout()
             cbX = cbX + cbWidth + 15
         end
     end
-    
     -- Position mountSep below specs (more breathing room)
     self.mountSep:ClearAllPoints()
     if hasSpecs then

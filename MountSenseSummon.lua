@@ -190,7 +190,7 @@ function Summon:PickRandomMount()
                         filtered[#filtered + 1] = mountID
                     end
                 else
-                    -- In non-flyable zone: exclude FLYING mounts
+                    -- In non-flyable zone: exclude FLYING mounts to ensure they don't run on the ground
                     if data.category ~= "FLYING" then
                         filtered[#filtered + 1] = mountID
                     end

@@ -94,12 +94,40 @@ SlashCmdList["MountSense"] = function(msg)
     elseif msg == "minimap" then
         addon.Minimap:Toggle()
 
+    elseif msg == "debug" then
+        addon:Print("--- MountSense Debug Info ---")
+        addon:Print("Zone: " .. tostring(GetRealZoneText()))
+        local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+        addon:Print("MapID: " .. tostring(mapID))
+        addon:Print("IsFlyableArea(): " .. tostring(IsFlyableArea()))
+        addon:Print("CanFly(): " .. tostring(addon.Conditions:CanFly()))
+        addon:Print("Context: " .. tostring(addon.Conditions:GetCurrentContext()))
+        local lists = addon.Conditions:GetMatchingLists()
+        addon:Print("Matching Lists: " .. #lists)
+        for i, entry in ipairs(lists) do
+            local name = entry.list.name or "Unnamed"
+            local isStrict = false
+            if entry.list.conditions then
+                if entry.list.conditions.contexts and #entry.list.conditions.contexts > 0 then isStrict = true end
+                if entry.list.conditions.specs and #entry.list.conditions.specs > 0 then isStrict = true end
+                if entry.list.conditions.outfits and #entry.list.conditions.outfits > 0 then isStrict = true end
+            end
+            addon:Print("  " .. i .. ". " .. name .. " (Strict: " .. tostring(isStrict) .. ", Mounts: " .. #(entry.list.mounts) .. ")")
+            for j=1, math.min(5, #(entry.list.mounts)) do
+                local data = addon.Data:GetMountData(entry.list.mounts[j])
+                if data then
+                    addon:Print("    - " .. data.name .. " (ID: " .. tostring(data.mountTypeID) .. ", Cat: " .. tostring(data.category) .. ")")
+                end
+            end
+        end
+
     elseif msg == "help" then
         addon:Print("Commands:")
         addon:Print("  /ms — Open the MountSense panel")
         addon:Print("  /ms summon — Summon a random mount from your lists")
         addon:Print("  /ms button — Toggle the summon button")
         addon:Print("  /ms minimap — Toggle the minimap icon")
+        addon:Print("  /ms debug — Print debugging information in chat")
 
     else
         addon.UI:Toggle()

@@ -144,6 +144,35 @@ function Browser:Create(parent)
     self.usableCB = usableCB
     Browser.usableOnly = true
 
+    -- Source filter dropdown
+    local sourceItems = { { text = "All Sources", value = -1 } }
+    for i = 1, 10 do
+        if addon.Data.SOURCE_TYPE_LABELS[i] then
+            table.insert(sourceItems, { text = addon.Data.SOURCE_TYPE_LABELS[i], value = i })
+        end
+    end
+    table.insert(sourceItems, { text = addon.Data.SOURCE_TYPE_LABELS[0], value = 0 })
+
+    local sourceDD = addon.UI:CreateDropdown(filterBar, 110, sourceItems, function(value)
+        Browser.sourceFilter = value
+        Browser:Refresh()
+    end)
+    sourceDD:SetPoint("LEFT", typeButtons["OTHER"], "RIGHT", 12, 0)
+    self.sourceDD = sourceDD
+    Browser.sourceFilter = -1
+
+    -- Hide in list checkbox
+    local hideInListCB = addon.UI:CreateCheckbox(filterBar, "Hide in list", 16)
+    hideInListCB:SetPoint("LEFT", sourceDD, "RIGHT", 12, 0)
+    hideInListCB:SetChecked(false)
+    hideInListCB.onToggle = function(self, checked)
+        Browser.hideInList = checked
+        Browser:Refresh()
+    end
+    self.hideInListCB = hideInListCB
+    Browser.hideInList = false
+
+
     ---------------------------------------------------------------------------
     -- Main area: Grid (left) + Preview (right)
     ---------------------------------------------------------------------------
@@ -379,7 +408,11 @@ function Browser:Create(parent)
     -- Add to list dropdown
     local listDD = addon.UI:CreateDropdown(selBar, 180, {}, function(value)
         Browser.targetListID = value
-        Browser:UpdateCards()
+        if Browser.hideInList then
+            Browser:Refresh()
+        else
+            Browser:UpdateCards()
+        end
     end)
     listDD:SetPoint("RIGHT", -120, 0)
     self.listDD = listDD
@@ -438,13 +471,20 @@ function Browser:Refresh()
     -- Refresh list dropdown
     self:RefreshListDropdown()
 
+    local hideListID = nil
+    if self.hideInList then
+        hideListID = self.targetListID
+    end
+
     -- Get filtered mounts
     self.currentMounts = addon.Data:GetFilteredMounts(
         self.searchText,
         self.filterType,
         self.sortBy,
         self.collectedOnly,
-        self.usableOnly
+        self.usableOnly,
+        self.sourceFilter,
+        hideListID
     )
 
     self:BuildCards()
@@ -775,7 +815,11 @@ function Browser:AddSelectedToList()
     -- Clear selection
     wipe(self.selected)
     self:UpdateSelection()
-    self:UpdateCards()
+    if self.hideInList then
+        self:Refresh()
+    else
+        self:UpdateCards()
+    end
 
     -- Update summon button
     if addon.Summon then

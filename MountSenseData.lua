@@ -222,13 +222,25 @@ end
 -------------------------------------------------------------------------------
 -- Filtered & Sorted mount retrieval
 -------------------------------------------------------------------------------
-function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, usableOnly)
+function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, usableOnly, sourceFilter, hideListID)
     local results = {}
+    
+    local hideList = hideListID and self:GetList(hideListID) or nil
+    local hiddenMounts = {}
+    if hideList then
+        for _, id in ipairs(hideList.mounts) do
+            hiddenMounts[id] = true
+        end
+    end
 
     for _, data in pairs(self.mountCache) do
         local include = true
 
-        if collectedOnly and not data.isCollected then
+        if include and hiddenMounts[data.mountID] then
+            include = false
+        end
+
+        if include and collectedOnly and not data.isCollected then
             include = false
         end
 
@@ -238,6 +250,12 @@ function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, u
 
         if include and typeFilter and typeFilter ~= "ALL" then
             if data.category ~= typeFilter then
+                include = false
+            end
+        end
+
+        if include and sourceFilter and sourceFilter ~= -1 then
+            if data.sourceType ~= sourceFilter then
                 include = false
             end
         end

@@ -1,1 +1,23 @@
 deploy.bat
+
+# Python (tools/update_db.py)
+__pycache__/
+*.pyc
+
+# Packaged addon output, if ever zipped locally
+*.zip
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor/tooling config (local machine only)
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# Backup/temp files
+*.bak
+*.tmp
+*~

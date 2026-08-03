@@ -190,8 +190,8 @@ function Editor:Create(parent)
 
     -- Context checkboxes
     local contextLabel = detail:CreateFontString(nil, "OVERLAY")
-    contextLabel:SetFont(addon.UI.FONT, 10, "")
-    contextLabel:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -8)
+    contextLabel:SetFont(addon.UI.FONT, 12, "")
+    contextLabel:SetPoint("TOPLEFT", condHeader, "BOTTOMLEFT", 0, -12)
     contextLabel:SetText("Context:")
     contextLabel:SetTextColor(unpack(addon.UI.C.textDim))
 
@@ -209,13 +209,33 @@ function Editor:Create(parent)
 
     -- Spec section
     local specLabel = detail:CreateFontString(nil, "OVERLAY")
-    specLabel:SetFont(addon.UI.FONT, 10, "")
+    specLabel:SetFont(addon.UI.FONT, 12, "")
     specLabel:SetText("Specialization:")
     specLabel:SetTextColor(unpack(addon.UI.C.textDim))
     self.specLabel = specLabel
 
     self.specCheckboxes = {}
     -- Spec checkboxes will be created dynamically in Refresh
+
+    -- Transmog outfit section
+    local transmogLabel = detail:CreateFontString(nil, "OVERLAY")
+    transmogLabel:SetFont(addon.UI.FONT, 12, "")
+    transmogLabel:SetText("Transmog Outfit:")
+    transmogLabel:SetTextColor(unpack(addon.UI.C.textDim))
+    self.transmogLabel = transmogLabel
+
+    local transmogSummary = detail:CreateFontString(nil, "OVERLAY")
+    transmogSummary:SetFont(addon.UI.FONT, 12, "")
+    transmogSummary:SetTextColor(unpack(addon.UI.C.text))
+    self.transmogSummary = transmogSummary
+
+    local transmogBtn = addon.UI:CreateAccentButton(detail, "Choose Outfits...", 116, 24)
+    transmogBtn:SetScript("OnClick", function()
+        if Editor.selectedListID and addon.Transmog then
+            addon.Transmog:Open(Editor.selectedListID)
+        end
+    end)
+    self.transmogBtn = transmogBtn
 
     detail:SetScript("OnSizeChanged", function()
         Editor:UpdateLayout()
@@ -569,6 +589,9 @@ function Editor:SetupListButton(btn, listID, list)
             end
         end
     end
+    if list.conditions and list.conditions.transmogOutfits and #list.conditions.transmogOutfits > 0 then
+        badges[#badges + 1] = "Transmog (" .. #list.conditions.transmogOutfits .. ")"
+    end
     btn.badgesText:SetText(#badges > 0 and table.concat(badges, " · ") or "All contexts")
 
     -- Highlight if selected
@@ -634,6 +657,16 @@ function Editor:RefreshDetailPanel()
 
     -- Spec checkboxes (dynamic)
     self:RefreshSpecCheckboxes(list)
+
+    -- Transmog outfit summary
+    local transmogOutfits = (list.conditions and list.conditions.transmogOutfits) or {}
+    if #transmogOutfits == 0 then
+        self.transmogSummary:SetText("Any / none")
+        self.transmogSummary:SetTextColor(unpack(addon.UI.C.textDim))
+    else
+        self.transmogSummary:SetText(#transmogOutfits .. " outfit" .. (#transmogOutfits ~= 1 and "s" or "") .. " selected")
+        self.transmogSummary:SetTextColor(unpack(addon.UI.C.accent))
+    end
 
     -- Position mount section below specs
     self:UpdateLayout()
@@ -850,30 +883,30 @@ function Editor:UpdateLayout()
     
     -- Layout contexts
     local cbX = 0
-    local cbY = -10
+    local cbY = -14
     for i, cb in ipairs(self.contextCheckboxes) do
         cb:ClearAllPoints()
         local cbWidth = cb:GetWidth()
-        
+
         if i == 1 then
             cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
         else
             if cbX + cbWidth > width then
                 cbX = 0
-                cbY = cbY - 26
+                cbY = cbY - 28
             end
             cb:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", cbX, cbY)
         end
         cbX = cbX + cbWidth + 15
     end
-    
+
     -- Position specLabel below contexts (more breathing room)
     self.specLabel:ClearAllPoints()
-    self.specLabel:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", 0, cbY - 38)
-    
+    self.specLabel:SetPoint("TOPLEFT", self.contextLabel, "BOTTOMLEFT", 0, cbY - 44)
+
     -- Layout specs
     cbX = 0
-    local specY = -10
+    local specY = -14
     local hasSpecs = false
     if self.specCheckboxes then
         for i, cb in ipairs(self.specCheckboxes) do
@@ -881,25 +914,32 @@ function Editor:UpdateLayout()
             hasSpecs = true
             cb:ClearAllPoints()
             local cbWidth = cb:GetWidth()
-            
+
             if i == 1 then
                 cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
             else
                 if cbX + cbWidth > width then
                     cbX = 0
-                    specY = specY - 26
+                    specY = specY - 28
                 end
                 cb:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", cbX, specY)
             end
             cbX = cbX + cbWidth + 15
         end
     end
-    -- Position mountSep below specs (more breathing room)
+    -- Position the transmog outfit row below specs (more breathing room)
+    local transmogY = hasSpecs and (specY - 40) or -30
+    self.transmogLabel:ClearAllPoints()
+    self.transmogLabel:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", 0, transmogY)
+
+    self.transmogSummary:ClearAllPoints()
+    self.transmogSummary:SetPoint("LEFT", self.transmogLabel, "RIGHT", 10, 0)
+
+    self.transmogBtn:ClearAllPoints()
+    self.transmogBtn:SetPoint("LEFT", self.transmogSummary, "RIGHT", 16, 0)
+
+    -- Position mountSep below the transmog row
     self.mountSep:ClearAllPoints()
-    if hasSpecs then
-        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, specY - 28)
-    else
-        self.mountSep:SetPoint("TOPLEFT", self.specLabel, "BOTTOMLEFT", -4, -20)
-    end
+    self.mountSep:SetPoint("TOPLEFT", self.transmogLabel, "BOTTOMLEFT", -4, -26)
     self.mountSep:SetPoint("RIGHT", self.detail, "RIGHT", -8, 0)
 end

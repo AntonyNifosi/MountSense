@@ -11,7 +11,8 @@ Browser.cards = {}
 Browser.selected = {}    -- [mountID] = true
 Browser.currentMounts = {}
 Browser.previewMountID = nil
-Browser.filterType = "ALL"
+Browser.filterTypes = { ALL = true }
+Browser.filterFamilies = { ALL = true }
 Browser.sortBy = "NAME_ASC"
 Browser.collectedOnly = true
 Browser.searchText = ""
@@ -85,7 +86,19 @@ function Browser:Create(parent)
 
         btn.cat = cat
         btn:SetScript("OnClick", function(self)
-            Browser.filterType = self.cat
+            if self.cat == "ALL" then
+                Browser.filterTypes = { ALL = true }
+            else
+                Browser.filterTypes["ALL"] = nil
+                if Browser.filterTypes[self.cat] then
+                    Browser.filterTypes[self.cat] = nil
+                    if next(Browser.filterTypes) == nil then
+                        Browser.filterTypes["ALL"] = true
+                    end
+                else
+                    Browser.filterTypes[self.cat] = true
+                end
+            end
             Browser:UpdateTypeButtons()
             Browser:Refresh()
         end)
@@ -93,13 +106,13 @@ function Browser:Create(parent)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText(addon.Data.MOUNT_TYPE_LABELS[self.cat] or self.cat)
             GameTooltip:Show()
-            if Browser.filterType ~= self.cat then
+            if not Browser.filterTypes[self.cat] then
                 self:SetBackdropBorderColor(unpack(addon.UI.C.accent))
             end
         end)
         btn:SetScript("OnLeave", function(self)
             GameTooltip:Hide()
-            if Browser.filterType ~= self.cat then
+            if not Browser.filterTypes[self.cat] then
                 self:SetBackdropBorderColor(unpack(addon.UI.C.border))
             end
         end)
@@ -109,55 +122,56 @@ function Browser:Create(parent)
     end
     self.typeButtons = typeButtons
 
-    -- Sort dropdown
     local sortItems = {
         { text = "Name (A - Z)", value = "NAME_ASC" },
         { text = "Name (Z - A)", value = "NAME_DESC" },
-        { text = "Rarity",     value = "RARITY" },
+        { text = "Source Rarity", value = "RARITY" },
+        { text = "% Rarest first", value = "RARITY_ASC" },
+        { text = "% Common first", value = "RARITY_DESC" },
     }
-    local sortDD = addon.UI:CreateDropdown(filterBar, 130, sortItems, function(value)
+    local sortDD = addon.UI:CreateDropdown(filterBar, 125, sortItems, "NAME_ASC", function(value)
         Browser.sortBy = value
         Browser:Refresh()
     end)
     sortDD:SetPoint("RIGHT", -8, 0)
     self.sortDD = sortDD
-
-    -- Collected toggle
-    local collectedCB = addon.UI:CreateCheckbox(filterBar, "Collected", 16)
-    collectedCB:SetPoint("RIGHT", sortDD, "LEFT", -12, 0)
-    collectedCB:SetChecked(true)
-    collectedCB.onToggle = function(self, checked)
-        Browser.collectedOnly = checked
-        Browser:Refresh()
-    end
-    self.collectedCB = collectedCB
-    Browser.collectedOnly = true
-
-    -- Usable toggle
-    local usableCB = addon.UI:CreateCheckbox(filterBar, "Usable", 16)
-    usableCB:SetPoint("RIGHT", collectedCB, "LEFT", -70, 0)
-    usableCB:SetChecked(true)
-    usableCB.onToggle = function(self, checked)
-        Browser.usableOnly = checked
-        Browser:Refresh()
-    end
-    self.usableCB = usableCB
-    Browser.usableOnly = true
-
-    -- Source filter dropdown
-    local sourceItems = { { text = "All Sources", value = -1 } }
-    for i = 1, 10 do
-        if addon.Data.SOURCE_TYPE_LABELS[i] then
-            table.insert(sourceItems, { text = addon.Data.SOURCE_TYPE_LABELS[i], value = i })
+    -- Family dropdown
+    local familyItems = { { text = "All Families", value = "ALL" } }
+    local uniqueFamilies = {}
+    if addon.ExternalData and addon.ExternalData.MountFamilies then
+        local seen = {}
+        for _, fam in pairs(addon.ExternalData.MountFamilies) do
+            if not seen[fam] then
+                seen[fam] = true
+                table.insert(uniqueFamilies, fam)
+            end
+        end
+        table.sort(uniqueFamilies)
+        for _, fam in ipairs(uniqueFamilies) do
+            table.insert(familyItems, { text = fam, value = fam })
         end
     end
-    table.insert(sourceItems, { text = addon.Data.SOURCE_TYPE_LABELS[0], value = 0 })
+    local familyDD = addon.UI:CreateMultiDropdown(filterBar, 120, familyItems, { ALL = true }, function(values)
+        Browser.filterFamilies = values
+        Browser:Refresh()
+    end)
+    familyDD:SetPoint("LEFT", typeButtons["OTHER"], "RIGHT", 12, 0)
+    self.familyDD = familyDD
 
-    local sourceDD = addon.UI:CreateDropdown(filterBar, 110, sourceItems, function(value)
+    -- Source dropdown
+    local sourceItems = { { text = "All Sources", value = -1 } }
+    for i = 1, 10 do
+        if addon.Data.SOURCE_LABELS[i] then
+            table.insert(sourceItems, { text = addon.Data.SOURCE_LABELS[i], value = i })
+        end
+    end
+    table.insert(sourceItems, { text = addon.Data.SOURCE_LABELS[0] or "Unknown", value = 0 })
+
+    local sourceDD = addon.UI:CreateDropdown(filterBar, 110, sourceItems, -1, function(value)
         Browser.sourceFilter = value
         Browser:Refresh()
     end)
-    sourceDD:SetPoint("LEFT", typeButtons["OTHER"], "RIGHT", 12, 0)
+    sourceDD:SetPoint("LEFT", familyDD, "RIGHT", 8, 0)
     self.sourceDD = sourceDD
     Browser.sourceFilter = -1
 
@@ -171,6 +185,28 @@ function Browser:Create(parent)
     end
     self.hideInListCB = hideInListCB
     Browser.hideInList = false
+
+    -- Usable toggle
+    local usableCB = addon.UI:CreateCheckbox(filterBar, "Usable", 16)
+    usableCB:SetPoint("RIGHT", sortDD, "LEFT", -12, 0)
+    usableCB:SetChecked(true)
+    usableCB.onToggle = function(self, checked)
+        Browser.usableOnly = checked
+        Browser:Refresh()
+    end
+    self.usableCB = usableCB
+    Browser.usableOnly = true
+
+    -- Collected toggle
+    local collectedCB = addon.UI:CreateCheckbox(filterBar, "Collected", 16)
+    collectedCB:SetPoint("RIGHT", usableCB, "LEFT", -70, 0)
+    collectedCB:SetChecked(true)
+    collectedCB.onToggle = function(self, checked)
+        Browser.collectedOnly = checked
+        Browser:Refresh()
+    end
+    self.collectedCB = collectedCB
+    Browser.collectedOnly = true
 
 
     ---------------------------------------------------------------------------
@@ -329,10 +365,20 @@ function Browser:Create(parent)
     previewType:SetTextColor(unpack(addon.UI.C.textDim))
     self.previewType = previewType
 
+    -- Mount rarity in preview
+    local previewRarity = previewContainer:CreateFontString(nil, "OVERLAY")
+    previewRarity:SetFont(addon.UI.FONT, 10, "")
+    previewRarity:SetPoint("TOP", previewType, "BOTTOM", 0, -2)
+    previewRarity:SetPoint("LEFT", 12, 0)
+    previewRarity:SetPoint("RIGHT", -12, 0)
+    previewRarity:SetJustifyH("CENTER")
+    previewRarity:SetTextColor(unpack(addon.UI.C.accent))
+    self.previewRarity = previewRarity
+
     -- Mount description (scrollable)
     local previewDesc = previewContainer:CreateFontString(nil, "OVERLAY")
     previewDesc:SetFont(addon.UI.FONT, 9, "")
-    previewDesc:SetPoint("TOP", previewType, "BOTTOM", 0, -8)
+    previewDesc:SetPoint("TOP", previewRarity, "BOTTOM", 0, -8)
     previewDesc:SetPoint("LEFT", 12, 0)
     previewDesc:SetPoint("RIGHT", -12, 0)
     previewDesc:SetJustifyH("LEFT")
@@ -406,7 +452,7 @@ function Browser:Create(parent)
     self.selCount = selCount
 
     -- Add to list dropdown
-    local listDD = addon.UI:CreateDropdown(selBar, 180, {}, function(value)
+    local listDD = addon.UI:CreateDropdown(selBar, 180, {}, nil, function(value)
         Browser.targetListID = value
         if Browser.hideInList then
             Browser:Refresh()
@@ -452,7 +498,7 @@ end
 -------------------------------------------------------------------------------
 function Browser:UpdateTypeButtons()
     for cat, btn in pairs(self.typeButtons) do
-        if cat == self.filterType then
+        if self.filterTypes[cat] then
             btn:SetBackdropColor(unpack(addon.UI.C.accentBg))
             btn:SetBackdropBorderColor(unpack(addon.UI.C.accent))
         else
@@ -479,11 +525,12 @@ function Browser:Refresh()
     -- Get filtered mounts
     self.currentMounts = addon.Data:GetFilteredMounts(
         self.searchText,
-        self.filterType,
+        self.filterTypes,
         self.sortBy,
         self.collectedOnly,
         self.usableOnly,
         self.sourceFilter,
+        self.filterFamilies,
         hideListID
     )
 
@@ -852,13 +899,23 @@ function Browser:ShowPreview(mountData)
     self.previewPlaceholder:Hide()
     self.previewName:SetText(mountData.name)
 
-    local srcLabel = addon.Data.SOURCE_TYPE_LABELS[mountData.sourceType] or "Unknown"
+    local srcLabel = addon.Data.SOURCE_LABELS[mountData.sourceType] or "Unknown"
     local srcColor = addon.Data.SOURCE_COLORS[mountData.sourceType] or { 0.5, 0.5, 0.5 }
     self.previewSource:SetText(srcLabel)
     self.previewSource:SetTextColor(srcColor[1], srcColor[2], srcColor[3])
 
     local typeLabel = addon.Data.MOUNT_TYPE_LABELS[mountData.category] or "Other"
+    if mountData.family then
+        typeLabel = typeLabel .. " • " .. mountData.family
+    end
     self.previewType:SetText(typeLabel)
+
+    if mountData.rarity then
+        self.previewRarity:SetText(string.format("%.2f%% of profiles", mountData.rarity))
+        self.previewRarity:Show()
+    else
+        self.previewRarity:Hide()
+    end
 
     self.previewDesc:SetText(mountData.description or "")
 

@@ -1,0 +1,46 @@
+name: Refresh Mount Data
+
+# Keeps the embedded MountsRarity library and the mount family database
+# up to date with their upstream sources, without ever cutting a release
+# on its own — publishing to CurseForge still only happens when a version
+# tag is pushed (see release.yml).
+on:
+  schedule:
+    - cron: '0 6 * * 1' # every Monday at 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v3
+
+      - name: Refresh embedded libraries (MountsRarity, LibStub)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lua-wow/LibStub/master/LibStub.lua" -UseBasicParsing -OutFile "Libs/LibStub/LibStub.lua"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sgade/MountsRarity/master/MountsRarity.lua" -UseBasicParsing -OutFile "Libs/MountsRarity/MountsRarity.lua"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Refresh mount family database
+        working-directory: tools
+        run: python update_db.py
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Libs tools/MountSenseDB_External.lua
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "Auto-refresh mount rarity/family data"
+            git push
+          fi

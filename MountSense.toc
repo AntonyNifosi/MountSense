@@ -7,6 +7,8 @@
 ## IconTexture: Interface\Icons\Ability_Mount_RidingHorse
 ## X-Curse-Project-ID: 1633590
 
+Libs\LibStub\LibStub.lua
+Libs\MountsRarity\MountsRarity.lua
 tools\MountSenseDB_External.lua
 MountSenseData.lua
 MountSenseConditions.lua

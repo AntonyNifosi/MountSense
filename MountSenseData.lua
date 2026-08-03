@@ -184,6 +184,11 @@ function Data:BuildMountCache()
     wipe(self.mountCache)
     wipe(self.mountsByType)
 
+    -- Mount rarity (% of players who own it) comes from the embedded
+    -- MountsRarity library (Libs/MountsRarity) rather than our own data —
+    -- it's maintained upstream and kept current automatically.
+    local rarityLib = LibStub and LibStub("MountsRarity-2.0", true)
+
     local mountIDs = C_MountJournal.GetMountIDs()
     for _, mountID in ipairs(mountIDs) do
         local name, spellID, icon, isActive, isUsable, sourceType, isFavorite,
@@ -212,7 +217,7 @@ function Data:BuildMountCache()
                 isFavorite         = isFavorite,
                 isUsable           = isUsable,
                 family             = addon.ExternalData and addon.ExternalData.MountFamilies and addon.ExternalData.MountFamilies[mountID],
-                rarity             = addon.ExternalData and addon.ExternalData.MountRarities and addon.ExternalData.MountRarities[mountID],
+                rarity             = rarityLib and rarityLib:GetRarityByID(mountID),
                 uiModelSceneID    = uiModelSceneID,
             }
 

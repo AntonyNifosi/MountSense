@@ -20,6 +20,8 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+eventFrame:RegisterEvent("TRANSMOGRIFY_SUCCESS")
 
 eventFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -39,6 +41,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         addon.Summon:UpdateMount()
 
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+        addon.Summon:UpdateMount()
+
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "TRANSMOGRIFY_SUCCESS" then
         addon.Summon:UpdateMount()
 
     elseif event == "ZONE_CHANGED_NEW_AREA" then
@@ -110,7 +115,7 @@ SlashCmdList["MountSense"] = function(msg)
             if entry.list.conditions then
                 if entry.list.conditions.contexts and #entry.list.conditions.contexts > 0 then isStrict = true end
                 if entry.list.conditions.specs and #entry.list.conditions.specs > 0 then isStrict = true end
-                if entry.list.conditions.outfits and #entry.list.conditions.outfits > 0 then isStrict = true end
+                if entry.list.conditions.transmogOutfits and #entry.list.conditions.transmogOutfits > 0 then isStrict = true end
             end
             addon:Print("  " .. i .. ". " .. name .. " (Strict: " .. tostring(isStrict) .. ", Mounts: " .. #(entry.list.mounts) .. ")")
             for j=1, math.min(5, #(entry.list.mounts)) do
@@ -121,6 +126,23 @@ SlashCmdList["MountSense"] = function(msg)
             end
         end
 
+    elseif msg == "outfitdebug" then
+        addon:Print("--- Transmog Outfit Debug (C_TransmogOutfitInfo) ---")
+        if not (C_TransmogOutfitInfo and C_TransmogOutfitInfo.GetOutfitsInfo) then
+            addon:Print("C_TransmogOutfitInfo is not available on this client.")
+        else
+            local outfits = addon.Conditions:GetUsableOutfits()
+            addon:Print("Outfits found: " .. #outfits)
+            for _, outfit in ipairs(outfits) do
+                local slots = addon.Conditions:GetOutfitSlotAppearances(outfit.outfitID)
+                local slotCount = 0
+                for _ in pairs(slots) do slotCount = slotCount + 1 end
+                local wearing = addon.Conditions:IsWearingOutfit(outfit.outfitID)
+                addon:Print(string.format("  [%d] %s — %d slot(s), wearing now: %s",
+                    outfit.outfitID, outfit.name, slotCount, tostring(wearing)))
+            end
+        end
+
     elseif msg == "help" then
         addon:Print("Commands:")
         addon:Print("  /ms — Open the MountSense panel")
@@ -128,6 +150,7 @@ SlashCmdList["MountSense"] = function(msg)
         addon:Print("  /ms button — Toggle the summon button")
         addon:Print("  /ms minimap — Toggle the minimap icon")
         addon:Print("  /ms debug — Print debugging information in chat")
+        addon:Print("  /ms outfitdebug — Print raw Transmog Outfit API data in chat")
 
     else
         addon.UI:Toggle()

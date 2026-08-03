@@ -13,6 +13,7 @@ MountSenseConditions.lua
 MountSenseSummon.lua
 MountSenseUI.lua
 MountSenseBrowser.lua
+MountSenseTransmog.lua
 MountSenseEditor.lua
 MountSenseSettings.lua
 MountSenseMinimap.lua

@@ -336,8 +336,9 @@ function Data:CreateList(name)
         name     = name or ("List " .. id),
         mounts   = {},
         conditions = {
-            contexts = {},
-            specs    = {},
+            contexts        = {},
+            specs           = {},
+            transmogOutfits = {},
         },
         priority = id,
     }
@@ -409,6 +410,14 @@ function Data:SetListContexts(listID, contexts)
     if list then
         list.conditions = list.conditions or {}
         list.conditions.contexts = contexts
+    end
+end
+
+function Data:SetListTransmogOutfits(listID, outfitIDs)
+    local list = self.db.lists[listID]
+    if list then
+        list.conditions = list.conditions or {}
+        list.conditions.transmogOutfits = outfitIDs
     end
 end
 

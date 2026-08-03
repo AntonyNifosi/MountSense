@@ -110,15 +110,6 @@ function UI:CreateDangerButton(parent, text, width, height)
     return btn
 end
 
---- Create a section header label
-function UI:CreateSectionHeader(parent, text)
-    local label = parent:CreateFontString(nil, "OVERLAY")
-    label:SetFont(self.FONT, 10, "")
-    label:SetText(string.upper(text))
-    label:SetTextColor(self.C.accent[1], self.C.accent[2], self.C.accent[3], 0.7)
-    return label
-end
-
 --- Create a search / text input
 function UI:CreateEditBox(parent, width, height, placeholder)
     local box = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
@@ -240,156 +231,6 @@ function UI:CreateCheckbox(parent, text, size)
     end)
 
     return frame
-end
-
---- Simple custom dropdown
-function UI:CreateDropdown(parent, width, items, onChange)
-    local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    dd:SetSize(width or 150, 26)
-    dd:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Buttons\\WHITE8x8",
-        edgeSize = 1,
-    })
-    dd:SetBackdropColor(unpack(self.C.bgCard))
-    dd:SetBackdropBorderColor(unpack(self.C.border))
-
-    dd.selectedValue = items and items[1] and items[1].value or nil
-    dd.items = items or {}
-
-    local label = dd:CreateFontString(nil, "OVERLAY")
-    label:SetFont(self.FONT, 11, "")
-    label:SetPoint("LEFT", 8, 0)
-    label:SetPoint("RIGHT", -20, 0)
-    label:SetJustifyH("LEFT")
-    label:SetText(items and items[1] and items[1].text or "")
-    label:SetTextColor(unpack(self.C.text))
-    dd.label = label
-
-    -- Arrow
-    local arrow = dd:CreateFontString(nil, "OVERLAY")
-    arrow:SetFont(self.FONT, 10, "")
-    arrow:SetPoint("RIGHT", -6, 0)
-    arrow:SetText("v")
-    arrow:SetTextColor(unpack(self.C.textDim))
-
-    -- Menu frame
-    local menu = CreateFrame("Frame", nil, dd, "BackdropTemplate")
-    menu:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Buttons\\WHITE8x8",
-        edgeSize = 1,
-    })
-    menu:SetBackdropColor(0.10, 0.10, 0.15, 0.98)
-    menu:SetBackdropBorderColor(unpack(self.C.border))
-    menu:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
-    menu:SetPoint("TOPRIGHT", dd, "BOTTOMRIGHT", 0, -2)
-    menu:SetFrameStrata("FULLSCREEN_DIALOG")
-    menu:SetFrameLevel(100)
-    menu:Hide()
-    dd.menu = menu
-
-    function dd:SetItems(newItems)
-        self.items = newItems
-        -- Rebuild menu children
-        for _, child in ipairs({ self.menu:GetChildren() }) do
-            child:Hide()
-            child:SetParent(nil)
-        end
-        local totalH = 4
-        for i, item in ipairs(newItems) do
-            local row = CreateFrame("Button", nil, self.menu)
-            row:SetSize(self.menu:GetWidth(), 24)
-            row:SetPoint("TOPLEFT", 2, -(totalH))
-            row:SetPoint("TOPRIGHT", -2, -(totalH))
-            row:SetHeight(24)
-
-            local rowBg = row:CreateTexture(nil, "BACKGROUND")
-            rowBg:SetAllPoints()
-            rowBg:SetColorTexture(0, 0, 0, 0)
-            row.bg = rowBg
-
-            local rowText = row:CreateFontString(nil, "OVERLAY")
-            rowText:SetFont(UI.FONT, 11, "")
-            rowText:SetPoint("LEFT", 8, 0)
-            rowText:SetText(item.text)
-            rowText:SetTextColor(unpack(UI.C.text))
-
-            row:SetScript("OnEnter", function(self)
-                self.bg:SetColorTexture(unpack(UI.C.tabHover))
-            end)
-            row:SetScript("OnLeave", function(self)
-                self.bg:SetColorTexture(0, 0, 0, 0)
-            end)
-            row:SetScript("OnClick", function(self)
-                dd.selectedValue = item.value
-                dd.label:SetText(item.text)
-                dd.menu:Hide()
-                if onChange then onChange(item.value, item.text) end
-            end)
-
-            totalH = totalH + 24
-        end
-        self.menu:SetHeight(totalH + 4)
-    end
-
-    function dd:SetValue(value, silent)
-        self.selectedValue = value
-        if self.items then
-            for _, item in ipairs(self.items) do
-                if tostring(item.value) == tostring(value) then
-                    self.label:SetText(item.text)
-                    if not silent and onChange then
-                        onChange(item.value, item.text)
-                    end
-                    return
-                end
-            end
-        end
-    end
-
-    dd:SetScript("OnClick", function(self)
-        if self.menu:IsShown() then
-            self.menu:Hide()
-        else
-            self:SetItems(self.items) -- refresh
-            self.menu:Show()
-        end
-    end)
-
-    dd:SetScript("OnEnter", function(self)
-        self:SetBackdropBorderColor(unpack(UI.C.accent))
-    end)
-    dd:SetScript("OnLeave", function(self)
-        if not self.menu:IsShown() then
-            self:SetBackdropBorderColor(unpack(UI.C.border))
-        end
-    end)
-
-    -- Close menu when clicking elsewhere (fullscreen overlay)
-    local overlay = CreateFrame("Button", nil, UIParent)
-    overlay:SetAllPoints(UIParent)
-    overlay:SetFrameStrata("FULLSCREEN")
-    overlay:SetFrameLevel(99)
-    overlay:Hide()
-    overlay:SetScript("OnClick", function()
-        menu:Hide()
-    end)
-    dd.overlay = overlay
-
-    menu:SetScript("OnShow", function(self)
-        overlay:Show()
-    end)
-    menu:SetScript("OnHide", function(self)
-        overlay:Hide()
-    end)
-
-    if items and #items > 0 then
-        dd:SetItems(items)
-    end
-
-
-    return dd
 end
 
 --- Horizontal separator line
@@ -780,6 +621,291 @@ function UI:Create()
 end
 
 -------------------------------------------------------------------------------
+-- Shared "click outside to close" handling for the dropdowns below.
+-- Only one custom dropdown list may be open at a time; clicking anywhere
+-- else on screen closes it.
+-------------------------------------------------------------------------------
+function UI:CloseOpenDropdown()
+    if self.openDropdown then
+        self.openDropdown:Hide()
+        self.openDropdown = nil
+    end
+    if self.dropdownOverlay then
+        self.dropdownOverlay:Hide()
+    end
+end
+
+function UI:OpenDropdown(listFrame)
+    self:CloseOpenDropdown()
+    if not self.dropdownOverlay then
+        local overlay = CreateFrame("Button", nil, UIParent)
+        overlay:SetAllPoints(UIParent)
+        overlay:SetFrameStrata("FULLSCREEN")
+        overlay:Hide()
+        overlay:SetScript("OnClick", function() UI:CloseOpenDropdown() end)
+        self.dropdownOverlay = overlay
+    end
+    listFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    self.dropdownOverlay:Show()
+    listFrame:Show()
+    self.openDropdown = listFrame
+end
+
+--- Create a custom dropdown menu
+function UI:CreateDropdown(parent, width, items, defaultVal, onSelect)
+    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    btn:SetSize(width or 120, 26)
+    btn:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    btn:SetBackdropColor(unpack(self.C.bgInput))
+    btn:SetBackdropBorderColor(unpack(self.C.border))
+
+    local text = btn:CreateFontString(nil, "OVERLAY")
+    text:SetFont(self.FONT, 10, "")
+    text:SetPoint("LEFT", 8, 0)
+    text:SetPoint("RIGHT", -20, 0)
+    text:SetJustifyH("LEFT")
+    text:SetTextColor(unpack(self.C.text))
+    btn.text = text
+
+    local arrow = btn:CreateTexture(nil, "OVERLAY")
+    arrow:SetSize(12, 12)
+    arrow:SetPoint("RIGHT", -6, 0)
+    arrow:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
+
+    local function GetLabel(val)
+        for _, item in ipairs(items) do
+            if item.value == val then return item.text end
+        end
+        return tostring(val)
+    end
+
+    btn.value = defaultVal
+    text:SetText(GetLabel(defaultVal))
+
+    local listFrame = CreateFrame("Frame", nil, btn, "BackdropTemplate")
+    listFrame:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -2)
+    listFrame:SetWidth(width or 120)
+    listFrame:SetHeight(#items * 20 + 8)
+    listFrame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    listFrame:SetBackdropColor(unpack(self.C.bgPanel))
+    listFrame:SetBackdropBorderColor(unpack(self.C.border))
+    listFrame:SetFrameLevel(100)
+    listFrame:Hide()
+    btn.listFrame = listFrame
+
+    function btn:SetValue(val, silent)
+        btn.value = val
+        text:SetText(GetLabel(val))
+        if not silent and onSelect then onSelect(val) end
+    end
+
+    function btn:SetItems(newItems)
+        items = newItems
+        local children = { listFrame:GetChildren() }
+        for _, child in ipairs(children) do
+            child:Hide()
+            child:SetParent(nil)
+        end
+
+        local yOff = -4
+        for _, item in ipairs(items) do
+            local itemBtn = CreateFrame("Button", nil, listFrame)
+            itemBtn:SetSize((width or 120) - 8, 20)
+            itemBtn:SetPoint("TOP", 0, yOff)
+            
+            local highlight = itemBtn:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1, 1, 1, 0.1)
+
+            local itemText = itemBtn:CreateFontString(nil, "OVERLAY")
+            itemText:SetFont(UI.FONT, 10, "")
+            itemText:SetPoint("LEFT", 8, 0)
+            itemText:SetText(item.text)
+            itemText:SetTextColor(unpack(UI.C.textDim))
+
+            itemBtn:SetScript("OnClick", function()
+                btn:SetValue(item.value, false)
+                UI:CloseOpenDropdown()
+            end)
+
+            itemBtn:SetScript("OnEnter", function() itemText:SetTextColor(unpack(UI.C.text)) end)
+            itemBtn:SetScript("OnLeave", function() itemText:SetTextColor(unpack(UI.C.textDim)) end)
+
+            yOff = yOff - 20
+        end
+        listFrame:SetHeight(math.max(8, #items * 20 + 8))
+        text:SetText(GetLabel(btn.value))
+    end
+
+    btn:SetItems(items)
+
+    btn:SetScript("OnClick", function()
+        if listFrame:IsShown() then
+            UI:CloseOpenDropdown()
+        else
+            UI:OpenDropdown(listFrame)
+        end
+    end)
+    btn:SetScript("OnHide", function()
+        if UI.openDropdown == listFrame then UI:CloseOpenDropdown() else listFrame:Hide() end
+    end)
+
+    return btn
+end
+
+--- Create a custom multiselect dropdown menu
+function UI:CreateMultiDropdown(parent, width, items, defaultVals, onSelect)
+    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    btn:SetSize(width or 120, 26)
+    btn:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    btn:SetBackdropColor(unpack(self.C.bgInput))
+    btn:SetBackdropBorderColor(unpack(self.C.border))
+
+    local text = btn:CreateFontString(nil, "OVERLAY")
+    text:SetFont(self.FONT, 10, "")
+    text:SetPoint("LEFT", 8, 0)
+    text:SetPoint("RIGHT", -20, 0)
+    text:SetJustifyH("LEFT")
+    text:SetTextColor(unpack(self.C.text))
+    btn.text = text
+
+    local arrow = btn:CreateTexture(nil, "OVERLAY")
+    arrow:SetSize(12, 12)
+    arrow:SetPoint("RIGHT", -6, 0)
+    arrow:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
+
+    local function GetLabel(vals)
+        local count = 0
+        local firstLabel = ""
+        if vals["ALL"] then return "All Families" end
+        for _, item in ipairs(items) do
+            if vals[item.value] then
+                count = count + 1
+                if count == 1 then firstLabel = item.text end
+            end
+        end
+        if count == 0 then return "None" end
+        if count == 1 then return firstLabel end
+        return count .. " selected"
+    end
+
+    btn.values = defaultVals or { ALL = true }
+    text:SetText(GetLabel(btn.values))
+
+    local listFrame = CreateFrame("Frame", nil, btn, "BackdropTemplate")
+    listFrame:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -2)
+    listFrame:SetWidth(width or 120)
+    listFrame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    listFrame:SetBackdropColor(unpack(self.C.bgPanel))
+    listFrame:SetBackdropBorderColor(unpack(self.C.border))
+    listFrame:SetFrameLevel(100)
+    listFrame:Hide()
+    btn.listFrame = listFrame
+
+    function btn:SetValues(vals, silent)
+        btn.values = vals
+        text:SetText(GetLabel(vals))
+        -- Update checks
+        local children = { listFrame:GetChildren() }
+        for _, child in ipairs(children) do
+            if child.check and child.value then
+                child.check:SetShown(btn.values[child.value] == true)
+            end
+        end
+        if not silent and onSelect then onSelect(vals) end
+    end
+
+    function btn:SetItems(newItems)
+        items = newItems
+        local children = { listFrame:GetChildren() }
+        for _, child in ipairs(children) do
+            child:Hide()
+            child:SetParent(nil)
+        end
+
+        local yOff = -4
+        for _, item in ipairs(items) do
+            local itemBtn = CreateFrame("Button", nil, listFrame)
+            itemBtn:SetSize((width or 120) - 8, 20)
+            itemBtn:SetPoint("TOP", 0, yOff)
+            itemBtn.value = item.value
+            
+            local highlight = itemBtn:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1, 1, 1, 0.1)
+
+            local check = itemBtn:CreateTexture(nil, "OVERLAY")
+            check:SetSize(14, 14)
+            check:SetPoint("LEFT", 4, 0)
+            check:SetTexture("Interface\\RAIDFRAME\\ReadyCheck-Ready")
+            check:SetShown(btn.values[item.value] == true)
+            itemBtn.check = check
+
+            local itemText = itemBtn:CreateFontString(nil, "OVERLAY")
+            itemText:SetFont(UI.FONT, 10, "")
+            itemText:SetPoint("LEFT", 20, 0)
+            itemText:SetText(item.text)
+            itemText:SetTextColor(unpack(UI.C.textDim))
+
+            itemBtn:SetScript("OnClick", function()
+                if item.value == "ALL" then
+                    btn.values = { ALL = true }
+                else
+                    btn.values["ALL"] = nil
+                    if btn.values[item.value] then
+                        btn.values[item.value] = nil
+                        if next(btn.values) == nil then
+                            btn.values["ALL"] = true
+                        end
+                    else
+                        btn.values[item.value] = true
+                    end
+                end
+                btn:SetValues(btn.values, false)
+            end)
+            
+            itemBtn:SetScript("OnEnter", function() itemText:SetTextColor(unpack(UI.C.text)) end)
+            itemBtn:SetScript("OnLeave", function() itemText:SetTextColor(unpack(UI.C.textDim)) end)
+            
+            yOff = yOff - 20
+        end
+        listFrame:SetHeight(math.max(8, #items * 20 + 8))
+        text:SetText(GetLabel(btn.values))
+    end
+
+    btn:SetItems(items)
+
+    btn:SetScript("OnClick", function()
+        if listFrame:IsShown() then
+            UI:CloseOpenDropdown()
+        else
+            UI:OpenDropdown(listFrame)
+        end
+    end)
+    btn:SetScript("OnHide", function()
+        if UI.openDropdown == listFrame then UI:CloseOpenDropdown() else listFrame:Hide() end
+    end)
+
+    return btn
+end
+
+-------------------------------------------------------------------------------
 -- Tab switching
 -------------------------------------------------------------------------------
 function UI:SwitchTab(key)
@@ -821,6 +947,8 @@ end
 -------------------------------------------------------------------------------
 function UI:Show()
     if not self.frame then self:Create() end
+    -- Invalidate any pending fade-out hide from a previous Hide() call
+    self.hideGen = (self.hideGen or 0) + 1
     self.frame:Show()
     -- Fade in
     self.frame:SetAlpha(0)
@@ -829,9 +957,13 @@ end
 
 function UI:Hide()
     if self.frame then
-        UIFrameFadeOut(self.frame, 0.1, 1, 0)
+        self.hideGen = (self.hideGen or 0) + 1
+        local gen = self.hideGen
+        UIFrameFadeOut(self.frame, 0.1, self.frame:GetAlpha(), 0)
         C_Timer.After(0.1, function()
-            if self.frame then self.frame:Hide() end
+            if self.frame and self.hideGen == gen then
+                self.frame:Hide()
+            end
         end)
     end
 end

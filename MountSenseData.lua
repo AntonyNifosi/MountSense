@@ -16,7 +16,6 @@ Data.defaults = {
     lists = {},
     nextListID = 1,
     minimap = { hide = false, minimapPos = 220 },
-    summonButton = { point = "CENTER", x = 0, y = -200, show = true },
     options = {
         showButton      = true,
         previewWidth    = nil,   -- nil = auto (30% of available width)
@@ -115,6 +114,20 @@ Data.SOURCE_COLORS = {
     [10] = { 0.00, 0.80, 1.00 },  -- Store — cyan
 }
 
+Data.SOURCE_LABELS = {
+    [0]  = "Unknown",
+    [1]  = "Drop",
+    [2]  = "Quest",
+    [3]  = "Vendor",
+    [4]  = "Profession",
+    [5]  = "Pet Battle",
+    [6]  = "Achievement",
+    [7]  = "World Event",
+    [8]  = "Promotion",
+    [9]  = "TCG",
+    [10] = "Store",
+}
+
 -- Context display data
 Data.CONTEXT_INFO = {
     { key = "openworld", label = "Open World",   icon = "Interface\\Icons\\INV_Misc_Map_01" },
@@ -198,6 +211,8 @@ function Data:BuildMountCache()
                 source             = source,
                 isFavorite         = isFavorite,
                 isUsable           = isUsable,
+                family             = addon.ExternalData and addon.ExternalData.MountFamilies and addon.ExternalData.MountFamilies[mountID],
+                rarity             = addon.ExternalData and addon.ExternalData.MountRarities and addon.ExternalData.MountRarities[mountID],
                 uiModelSceneID    = uiModelSceneID,
             }
 
@@ -222,7 +237,7 @@ end
 -------------------------------------------------------------------------------
 -- Filtered & Sorted mount retrieval
 -------------------------------------------------------------------------------
-function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, usableOnly, sourceFilter, hideListID)
+function Data:GetFilteredMounts(searchText, typeFilters, sortBy, collectedOnly, usableOnly, sourceFilter, familyFilters, hideListID)
     local results = {}
     
     local hideList = hideListID and self:GetList(hideListID) or nil
@@ -248,14 +263,20 @@ function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, u
             include = false
         end
 
-        if include and typeFilter and typeFilter ~= "ALL" then
-            if data.category ~= typeFilter then
+        if include and typeFilters and not typeFilters["ALL"] then
+            if not typeFilters[data.category] then
                 include = false
             end
         end
 
         if include and sourceFilter and sourceFilter ~= -1 then
             if data.sourceType ~= sourceFilter then
+                include = false
+            end
+        end
+
+        if include and familyFilters and not familyFilters["ALL"] then
+            if not familyFilters[data.family] then
                 include = false
             end
         end
@@ -280,6 +301,20 @@ function Data:GetFilteredMounts(searchText, typeFilter, sortBy, collectedOnly, u
         table.sort(results, function(a, b)
             local ra = Data.SOURCE_RARITY[a.sourceType] or 0
             local rb = Data.SOURCE_RARITY[b.sourceType] or 0
+            if ra ~= rb then return ra > rb end
+            return a.name < b.name
+        end)
+    elseif sortBy == "RARITY_ASC" then
+        table.sort(results, function(a, b)
+            local ra = a.rarity or 100
+            local rb = b.rarity or 100
+            if ra ~= rb then return ra < rb end
+            return a.name < b.name
+        end)
+    elseif sortBy == "RARITY_DESC" then
+        table.sort(results, function(a, b)
+            local ra = a.rarity or 100
+            local rb = b.rarity or 100
             if ra ~= rb then return ra > rb end
             return a.name < b.name
         end)

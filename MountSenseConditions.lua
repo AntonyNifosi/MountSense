@@ -81,10 +81,6 @@ end
 -- and C_TransmogCollection Custom Sets systems).
 -------------------------------------------------------------------------------
 
--- [outfitID] = { [inventorySlot] = sourceID } — static game data for the
--- session (invalidated whenever the outfit list changes).
-Conditions.outfitSlotCache = {}
-
 -- Real InventorySlotId for each TransmogOutfitSlot, matched by the
 -- self-describing "slotName" string returned by
 -- C_TransmogOutfitInfo.GetAllSlotLocationInfo() — confirmed live in-game
@@ -106,14 +102,40 @@ local OUTFIT_SLOTNAME_TO_INVSLOT = {
     SECONDARYHANDSLOT = 17,
 }
 
+-- Outfit data is served by load-on-demand Blizzard addon modules — the
+-- Wardrobe (Blizzard_Collections) and the Transmogrifier NPC frame itself
+-- (Blizzard_ItemInteractionUI, which also backs Void Storage / Item
+-- Upgrade). Blizzard's own Transmogrifier is known to sometimes need a UI
+-- reload before it behaves correctly (reported on their own forums), which
+-- points at this module not always finishing its own setup on a fresh
+-- login; force-loading both explicitly is the best mitigation available
+-- from an addon.
+local didLoadOutfitAddOns = false
+local function EnsureOutfitAddOnsLoaded()
+    if didLoadOutfitAddOns then return end
+    didLoadOutfitAddOns = true
+    local loadAddOn = (C_AddOns and C_AddOns.LoadAddOn) or LoadAddOn
+    if not loadAddOn then return end
+    pcall(loadAddOn, "Blizzard_Collections")
+    pcall(loadAddOn, "Blizzard_ItemInteractionUI")
+end
+
 -- [TransmogOutfitSlot enum] = real InventorySlotId. Static for the whole
 -- session (client-defined, doesn't depend on the outfit or the player).
 Conditions.outfitSlotMapCache = nil
 
+-- Below this many resolved slots, GetAllSlotLocationInfo() almost certainly
+-- returned an incomplete result (e.g. queried too soon after login, before
+-- the transmog UI data streamed in) — there are 11 real slots we map to,
+-- and that list is static client data, not outfit- or class-specific.
+local OUTFIT_SLOT_MAP_MIN_ENTRIES = 10
+
 function Conditions:GetOutfitSlotMap()
     if self.outfitSlotMapCache then return self.outfitSlotMapCache end
+    EnsureOutfitAddOnsLoaded()
 
     local map = {}
+    local count = 0
     if C_TransmogOutfitInfo and C_TransmogOutfitInfo.GetAllSlotLocationInfo then
         local appearanceSlots = C_TransmogOutfitInfo.GetAllSlotLocationInfo() or {}
         for _, info in ipairs(appearanceSlots) do
@@ -121,27 +143,25 @@ function Conditions:GetOutfitSlotMap()
                 local invSlot = OUTFIT_SLOTNAME_TO_INVSLOT[info.slotName]
                 if invSlot then
                     map[info.slot] = invSlot
+                    count = count + 1
                 end
             end
         end
     end
 
-    self.outfitSlotMapCache = map
+    -- Only cache a result that looks complete; an incomplete one is almost
+    -- certainly a transient readiness issue, so let the next call retry
+    -- instead of freezing bad data for the rest of the session.
+    if count >= OUTFIT_SLOT_MAP_MIN_ENTRIES then
+        self.outfitSlotMapCache = map
+    end
     return map
 end
 
 --- Returns the player's saved Transmog Outfits (name + id), sorted by name.
 function Conditions:GetUsableOutfits()
     if self.outfitsCache then return self.outfitsCache end
-
-    -- Outfit data lives behind the load-on-demand Blizzard_Collections
-    -- addon; make sure it's loaded before querying, in case the player has
-    -- never opened their Wardrobe/Transmogrifier this session.
-    if C_AddOns and C_AddOns.LoadAddOn then
-        pcall(C_AddOns.LoadAddOn, "Blizzard_Collections")
-    elseif LoadAddOn then
-        pcall(LoadAddOn, "Blizzard_Collections")
-    end
+    EnsureOutfitAddOnsLoaded()
 
     local outfits = {}
     if C_TransmogOutfitInfo and C_TransmogOutfitInfo.GetOutfitsInfo then
@@ -154,7 +174,12 @@ function Conditions:GetUsableOutfits()
         table.sort(outfits, function(a, b) return a.name < b.name end)
     end
 
-    self.outfitsCache = outfits
+    -- Don't lock in an empty result forever — it's more likely a transient
+    -- readiness issue (e.g. queried right after login) than a character
+    -- that genuinely has zero saved outfits.
+    if #outfits > 0 then
+        self.outfitsCache = outfits
+    end
     return outfits
 end
 
@@ -162,10 +187,16 @@ end
 --- it expects to see worn in each slot it covers. Reading an outfit's
 --- contents goes through its "viewed outfit" session
 --- (ChangeViewedOutfit + GetViewedOutfitSlotInfo) — confirmed in-game to
---- work fine outside an active NPC transmog session.
+--- work fine outside an active NPC transmog session, but confirmed
+--- unreliable for a moment right after switching from a different
+--- previously-viewed outfit: consecutive queries can return different
+--- (sometimes stale, carried over from whatever was viewed before)
+--- results until it settles, with no fixed delay that reliably covers it.
+--- This is deliberately NOT cached here — callers that need a *stable*
+--- reading (like the 3D preview) must query repeatedly until two
+--- consecutive reads agree; see MountSenseTransmog.lua.
 function Conditions:GetOutfitSlotAppearances(outfitID)
-    local cached = self.outfitSlotCache[outfitID]
-    if cached then return cached end
+    EnsureOutfitAddOnsLoaded()
 
     local slotAppearances = {}
     if C_TransmogOutfitInfo and C_TransmogOutfitInfo.ChangeViewedOutfit
@@ -174,25 +205,18 @@ function Conditions:GetOutfitSlotAppearances(outfitID)
         C_TransmogOutfitInfo.ChangeViewedOutfit(outfitID)
         for outfitSlot, invSlot in pairs(slotMap) do
             local info = C_TransmogOutfitInfo.GetViewedOutfitSlotInfo(outfitSlot, 0, 0)
-            if info and info.transmogID and info.transmogID > 0 then
+            -- isTransmogrified == true is what actually distinguishes a
+            -- slot the outfit defines from one it doesn't: confirmed
+            -- in-game that a not-really-set slot can still return a
+            -- nonzero, even plausible-looking transmogID, so transmogID
+            -- alone isn't a reliable filter — isTransmogrified is.
+            if info and info.isTransmogrified and info.transmogID and info.transmogID > 0 then
                 slotAppearances[invSlot] = info.transmogID
             end
         end
     end
 
-    self.outfitSlotCache[outfitID] = slotAppearances
     return slotAppearances
-end
-
---- Per-slot sourceIDs for 3D preview purposes (the outfit data already
---- stores sourceIDs directly, confirmed via C_TransmogCollection.GetSourceInfo).
-function Conditions:GetOutfitPreviewSources(outfitID)
-    local slotAppearances = self:GetOutfitSlotAppearances(outfitID)
-    local preview = {}
-    for _, sourceID in pairs(slotAppearances) do
-        preview[#preview + 1] = sourceID
-    end
-    return preview
 end
 
 --- Whether the given Outfit is the player's currently active one. Uses the

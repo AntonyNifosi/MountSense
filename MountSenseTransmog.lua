@@ -145,7 +145,7 @@ function Transmog:Create()
     doneBtn:SetPoint("BOTTOMRIGHT", -12, 10)
     doneBtn:SetScript("OnClick", function() Transmog:Close() end)
 
-    if not (C_TransmogCollection and (C_TransmogCollection.GetOutfits or C_TransmogCollection.GetCustomSets)) then
+    if not (C_TransmogOutfitInfo and C_TransmogOutfitInfo.GetOutfitsInfo) then
         local unavailable = f:CreateFontString(nil, "OVERLAY")
         unavailable:SetFont(addon.UI.FONT, 11, "")
         unavailable:SetPoint("CENTER")
@@ -279,38 +279,98 @@ end
 -------------------------------------------------------------------------------
 -- 3D preview
 -------------------------------------------------------------------------------
-local ITEM_TRY_ON_DATA_PENDING = 3 -- Enum.ItemTryOnReason.DataPending
+local ITEM_TRY_ON_SUCCESS = 0 -- Enum.ItemTryOnReason.Success
+
+-- Reading an outfit's per-slot data (Conditions:GetOutfitSlotAppearances)
+-- can return a different result on consecutive calls for a short,
+-- unpredictable moment right after switching from a different
+-- previously-viewed outfit — confirmed in-game: the game's own "viewed
+-- outfit" session sometimes shows a mix of stale data carried over from
+-- whatever was viewed just before. A single reading can't be trusted; only
+-- one confirmed by an identical follow-up reading a moment later can.
+local SETTLE_INTERVAL     = 0.25
+local SETTLE_MAX_ATTEMPTS = 20 -- ~5s
+
+-- Once the slot data is trusted, TryOn() itself can still report a slot as
+-- not-yet-applied (most commonly "DataPending") if the item's own data
+-- hasn't streamed in yet; retry until everything applies.
+local TRY_ON_RETRY_INTERVAL = 0.3
+local TRY_ON_MAX_ATTEMPTS   = 20 -- ~6s
+
+-- [outfitID] = { [inventorySlot] = sourceID }, once confirmed stable —
+-- static data for the outfit, safe to reuse for the rest of the session.
+Transmog.outfitPreviewCache = {}
+
+local function SlotsEqual(a, b)
+    for slot, sourceID in pairs(a) do
+        if b[slot] ~= sourceID then return false end
+    end
+    for slot, sourceID in pairs(b) do
+        if a[slot] ~= sourceID then return false end
+    end
+    return true
+end
 
 function Transmog:PreviewOutfit(outfitID)
     if not self.model or not outfitID then return end
+    if self.previewingOutfitID == outfitID then return end -- already showing/settling this one
     self.previewingOutfitID = outfitID
     self.model:Undress()
-    self:TryOnOutfit(outfitID)
+
+    local cached = self.outfitPreviewCache[outfitID]
+    if cached then
+        self:ApplyOutfitSlots(outfitID, cached, 0)
+        return
+    end
+
+    self.settlePreviousRead = nil
+    self:SettleOutfitSlots(outfitID, 0)
 end
 
--- TryOn() can fail with "DataPending" the first time an item's data hasn't
--- streamed in from the server yet; retry briefly until everything applies.
-function Transmog:TryOnOutfit(outfitID, attempt)
+-- Keep re-reading the outfit's slot data until two consecutive reads agree
+-- (or we've waited long enough), then cache and apply that stable result.
+function Transmog:SettleOutfitSlots(outfitID, attempt)
     if self.previewingOutfitID ~= outfitID then return end -- superseded by a later hover
 
-    local sourceIDs = addon.Conditions:GetOutfitPreviewSources(outfitID)
-    local pending = false
-    for _, sourceID in ipairs(sourceIDs) do
+    local slots = addon.Conditions:GetOutfitSlotAppearances(outfitID)
+    local previous = self.settlePreviousRead
+    self.settlePreviousRead = slots
+
+    local settled = previous ~= nil and SlotsEqual(previous, slots)
+    if settled or attempt >= SETTLE_MAX_ATTEMPTS then
+        self.outfitPreviewCache[outfitID] = slots
+        self:ApplyOutfitSlots(outfitID, slots, 0)
+        return
+    end
+
+    C_Timer.After(SETTLE_INTERVAL, function()
+        Transmog:SettleOutfitSlots(outfitID, attempt + 1)
+    end)
+end
+
+-- Apply a (now-trusted) set of slot appearances to the model, retrying
+-- individual pieces that report back as not-yet-applied.
+function Transmog:ApplyOutfitSlots(outfitID, slots, attempt)
+    if self.previewingOutfitID ~= outfitID then return end -- superseded by a later hover
+
+    local allSucceeded = true
+    for _, sourceID in pairs(slots) do
         local result = self.model:TryOn(sourceID)
-        if result == ITEM_TRY_ON_DATA_PENDING then
-            pending = true
+        if result ~= ITEM_TRY_ON_SUCCESS then
+            allSucceeded = false
         end
     end
 
-    if pending and (attempt or 0) < 10 then
-        C_Timer.After(0.2, function()
-            Transmog:TryOnOutfit(outfitID, (attempt or 0) + 1)
+    if not allSucceeded and attempt < TRY_ON_MAX_ATTEMPTS then
+        C_Timer.After(TRY_ON_RETRY_INTERVAL, function()
+            Transmog:ApplyOutfitSlots(outfitID, slots, attempt + 1)
         end)
     end
 end
 
 function Transmog:ClearPreview()
     self.previewingOutfitID = nil
+    self.settlePreviousRead = nil
     if not self.model then return end
     self.model:SetUnit("player")
 end

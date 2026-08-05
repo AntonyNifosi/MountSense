@@ -71,11 +71,31 @@ function Settings:Create(parent)
     smartToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -100)
     self.smartToggle = smartToggle
 
+    -- Smart aquatic toggle
+    local aquaticToggle = self:CreateToggleRow(panel,
+        "Interface\\Icons\\INV_Misc_Fish_35",
+        "Smart Aquatic Detection",
+        "While swimming, prefer aquatic mounts. Otherwise, exclude aquatic mounts. Falls back to all mounts if no match found.",
+        "smartAquatic")
+    aquaticToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -168)
+    aquaticToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -168)
+    self.aquaticToggle = aquaticToggle
+
+    -- Anti-repeat toggle
+    local antiRepeatToggle = self:CreateToggleRow(panel,
+        "Interface\\Icons\\INV_Misc_Dice_02",
+        "Avoid Repeats",
+        "Don't resummon any of the last few mounts you actually rode. Falls back to repeats if your matching mounts run out.",
+        "antiRepeat")
+    antiRepeatToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -236)
+    antiRepeatToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -236)
+    self.antiRepeatToggle = antiRepeatToggle
+
     -- Separator
     local sep2 = panel:CreateTexture(nil, "ARTWORK")
     sep2:SetHeight(1)
-    sep2:SetPoint("TOPLEFT", 12, -168)
-    sep2:SetPoint("TOPRIGHT", -12, -168)
+    sep2:SetPoint("TOPLEFT", 12, -304)
+    sep2:SetPoint("TOPRIGHT", -12, -304)
     sep2:SetColorTexture(addon.UI.C.border[1], addon.UI.C.border[2],
                          addon.UI.C.border[3], 0.5)
 
@@ -83,7 +103,7 @@ function Settings:Create(parent)
     -- Section: Browse & Preview
     ---------------------------------------------------------------------------
     local secBrowse = addon.UI:CreateSectionHeader(panel, "Browse & Preview")
-    secBrowse:SetPoint("TOPLEFT", 16, -184)
+    secBrowse:SetPoint("TOPLEFT", 16, -320)
 
     -- Preview rotation toggle
     local rotateToggle = self:CreateToggleRow(panel,
@@ -91,8 +111,8 @@ function Settings:Create(parent)
         "3D Preview Auto-Rotation",
         "Automatically rotate the 3D mount preview after 2 seconds of hovering over a mount card.",
         "previewRotation")
-    rotateToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -210)
-    rotateToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -210)
+    rotateToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -346)
+    rotateToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -346)
     self.rotateToggle = rotateToggle
 end
 
@@ -206,8 +226,9 @@ function Settings:CreateToggleRow(parent, iconPath, title, desc, optionKey)
                 end
             end
         end
-        -- Live apply: re-pick mount if smart flyable toggled
-        if row.optionKey == "smartFlyable" then
+        -- Live apply: re-pick mount if smart flyable/aquatic/anti-repeat toggled
+        if row.optionKey == "smartFlyable" or row.optionKey == "smartAquatic"
+           or row.optionKey == "antiRepeat" then
             addon.Summon:UpdateMount()
         end
     end)
@@ -240,6 +261,12 @@ function Settings:Refresh()
 
     if self.smartToggle then
         self.smartToggle.toggle:SetEnabled(opts.smartFlyable ~= false)
+    end
+    if self.aquaticToggle then
+        self.aquaticToggle.toggle:SetEnabled(opts.smartAquatic ~= false)
+    end
+    if self.antiRepeatToggle then
+        self.antiRepeatToggle.toggle:SetEnabled(opts.antiRepeat ~= false)
     end
     if self.rotateToggle then
         self.rotateToggle.toggle:SetEnabled(opts.previewRotation ~= false)

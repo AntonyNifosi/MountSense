@@ -41,6 +41,10 @@ function Conditions:CanFly()
     return (IsFlyableArea() or (IsAdvancedFlyableArea and IsAdvancedFlyableArea())) and true or false
 end
 
+function Conditions:IsSwimming()
+    return IsSwimming() and true or false
+end
+
 -------------------------------------------------------------------------------
 -- Specialisation helpers
 -------------------------------------------------------------------------------

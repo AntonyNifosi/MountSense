@@ -8,6 +8,17 @@ addon.Summon = Summon
 
 Summon.button      = nil
 Summon.lastMountID = nil
+Summon.history      = {}  -- most recently actually-summoned mount IDs, oldest first
+
+local HISTORY_SIZE = 3
+
+local function RecordHistory(mountID)
+    if not mountID then return end
+    table.insert(Summon.history, mountID)
+    while #Summon.history > HISTORY_SIZE do
+        table.remove(Summon.history, 1)
+    end
+end
 
 -------------------------------------------------------------------------------
 -- Create the secure summon button
@@ -176,9 +187,39 @@ function Summon:PickRandomMount()
         end
     end
 
-    -- Smart flyable zone filter
+    -- Smart aquatic filter (checked first: actively swimming overrides the
+    -- flyable-zone preference below, since you can't fly out of the water)
     local opts = addon.Data.db.options
-    if opts and opts.smartFlyable and #allMounts > 0 then
+    local aquaticLockedIn = false
+    if opts and opts.smartAquatic and #allMounts > 0 then
+        local swimming = addon.Conditions:IsSwimming()
+        local filtered = {}
+        for _, mountID in ipairs(allMounts) do
+            local data = addon.Data:GetMountData(mountID)
+            if data then
+                if swimming then
+                    -- Swimming: prefer AQUATIC mounts
+                    if data.category == "AQUATIC" then
+                        filtered[#filtered + 1] = mountID
+                    end
+                else
+                    -- Not swimming: exclude AQUATIC mounts so they don't flop around on land
+                    if data.category ~= "AQUATIC" then
+                        filtered[#filtered + 1] = mountID
+                    end
+                end
+            end
+        end
+        -- Only apply the filter if it yields at least one mount
+        if #filtered > 0 then
+            allMounts = filtered
+            aquaticLockedIn = swimming
+        end
+    end
+
+    -- Smart flyable zone filter (skipped if the aquatic filter above already
+    -- locked onto AQUATIC mounts for active swimming)
+    if opts and opts.smartFlyable and not aquaticLockedIn and #allMounts > 0 then
         local canFly = addon.Conditions:CanFly()
         local filtered = {}
         for _, mountID in ipairs(allMounts) do
@@ -198,6 +239,22 @@ function Summon:PickRandomMount()
             end
         end
         -- Only apply the filter if it yields at least one mount
+        if #filtered > 0 then
+            allMounts = filtered
+        end
+    end
+
+    -- Anti-repeat: avoid resummoning any of the last few actually-summoned
+    -- mounts, so long as it still leaves at least one candidate
+    if opts and opts.antiRepeat ~= false and #self.history > 0 and #allMounts > 0 then
+        local recent = {}
+        for _, id in ipairs(self.history) do recent[id] = true end
+        local filtered = {}
+        for _, mountID in ipairs(allMounts) do
+            if not recent[mountID] then
+                filtered[#filtered + 1] = mountID
+            end
+        end
         if #filtered > 0 then
             allMounts = filtered
         end
@@ -243,6 +300,7 @@ function Summon:SummonRandom()
     end
     self:PickRandomMount()
     if self.lastMountID then
+        RecordHistory(self.lastMountID)
         C_MountJournal.SummonByID(self.lastMountID)
     else
         C_MountJournal.SummonByID(0)

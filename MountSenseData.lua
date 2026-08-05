@@ -20,6 +20,8 @@ Data.defaults = {
         showButton      = true,
         previewWidth    = nil,   -- nil = auto (30% of available width)
         smartFlyable    = true,  -- prefer flying mounts in flyable zones
+        smartAquatic    = true,  -- prefer aquatic mounts while swimming
+        antiRepeat      = true,  -- avoid resummoning recently-summoned mounts
         previewRotation = true,  -- auto-rotate 3D model after 2s hover
     },
 }

@@ -381,7 +381,15 @@ function UI:Create()
     local f = CreateFrame("Frame", "MountSenseMainFrame", UIParent, "BackdropTemplate")
     local screenW = UIParent:GetWidth() or 1920
     local screenH = UIParent:GetHeight() or 1080
-    local defW = math.floor(math.max(860, screenW * 0.6))
+
+    -- Narrowest width the busiest tab (Browse — search box, 5 type filter
+    -- buttons, family/source dropdowns and checkboxes all sharing one toolbar
+    -- row, some left-anchored and some right-anchored) can render at without
+    -- those controls overlapping each other. Clamped to the screen so it
+    -- never exceeds what SetResizeBounds' max is allowed to be.
+    local MIN_WIDTH = math.min(1300, screenW)
+
+    local defW = math.floor(math.max(MIN_WIDTH, screenW * 0.6))
     local defH = math.floor(math.max(560, screenH * 0.7))
     f:SetSize(defW, defH)
     f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", (screenW - defW) / 2, -(screenH - defH) / 2)
@@ -394,7 +402,7 @@ function UI:Create()
     f:SetBackdropBorderColor(unpack(self.C.borderAccent))
     f:SetMovable(true)
     f:SetResizable(true)
-    f:SetResizeBounds(650, 400, screenW, screenH)
+    f:SetResizeBounds(MIN_WIDTH, 400, screenW, screenH)
     f:EnableMouse(true)
     f:SetClampedToScreen(true)
     f:SetFrameStrata("HIGH")

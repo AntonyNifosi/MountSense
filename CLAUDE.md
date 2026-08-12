@@ -45,7 +45,7 @@ local ThisModule = {}
 addon.ThisModule = ThisModule
 ```
 
-All modules share the single `addon` table (the addon's private namespace, obtained from `...` in every file). `MountSense.lua` also exposes it globally as `MountSense` so macros/other addons can call it. Load order (from the `.toc`): `Libs/*` → `tools/MountSenseDB_External.lua` → `Data` → `Conditions` → `Summon` → `UI` → `Browser` → `Transmog` → `Editor` → `Settings` → `Minimap` → `MountSense.lua` (entry point, registered last so every module it wires up in `Initialize`/event handlers already exists).
+All modules share the single `addon` table (the addon's private namespace, obtained from `...` in every file). `MountSense.lua` also exposes it globally as `MountSense` so macros/other addons can call it. Load order (from the `.toc`): `Libs/*` → `tools/MountSenseDB_External.lua` → `Data` → `Conditions` → `Summon` → `UI` → `Browser` → `Transmog` → `Inspect` → `Editor` → `Settings` → `Minimap` → `MountSense.lua` (entry point, registered last so every module it wires up in `Initialize`/event handlers already exists).
 
 ### Module responsibilities
 
@@ -57,7 +57,16 @@ All modules share the single `addon` table (the addon's private namespace, obtai
 - **MountSenseBrowser.lua** — the "Browse" tab: mount grid, search/filter/sort, bulk-add to a list.
 - **MountSenseEditor.lua** — the "My Lists" tab: list CRUD, drag-to-reorder priority, and the per-list condition editor (contexts, specs, Transmog Outfits).
 - **MountSenseTransmog.lua** — the Transmog Outfit picker modal (search + checklist) and its live 3D preview (`DressUpModel`), including the async "settle" logic described below.
+- **MountSenseInspect.lua** — inspects your mouseover (falling back to your target) for a mount you own but haven't listed anywhere, and opens a picker to add it to one or more lists. Reachable via `/ms inspect` (guaranteed fallback) or the "MountSense" header keybind in Blizzard's Key Bindings UI. Uses `AuraUtil.ForEachAura` + `C_MountJournal.GetMountFromSpell` to identify the mount from the unit's buffs — this works even for mounts you don't personally own, since mount data (unlike collection state) is global per spellID. Unverified in-game as of introduction; probe with `/run` if aura detection misbehaves on a client patch.
 - **MountSenseSettings.lua** / **MountSenseMinimap.lua** — the Settings tab and the minimap icon, respectively.
+
+### Keybindings
+
+`BINDING_NAME_*` globals (set in Lua, e.g. `MountSenseInspect.lua`) only supply the **display text** for a binding action — they do **not** by themselves make anything show up in Blizzard's Key Bindings UI. The action itself must be declared in `Bindings.xml` at the addon root, whose body is the Lua to run (a plain global function call is enough; no secure/CLICK-button indirection needed unless the action must remain legal during combat lockdown). `Bindings.xml` is auto-loaded by the client and must **not** be listed in `MountSense.toc`. Every addon-defined keybind should also get a `/ms <name>` slash command fallback, since it doesn't depend on the client having registered the binding correctly.
+
+**Getting your own named section in the list is done via `category`, not `header`.** Confirmed in-game: `Bindings.xml`'s `header` attribute (+ a matching `BINDING_HEADER_*` global) does **not** currently give a binding its own row — it silently falls into whichever section precedes it in the list (in practice, the shared "Add-ons" bucket used by every `category="ADDONS"` binding that relies on `header`). Putting the addon's own name directly as the `category` value instead (e.g. `category="MountSense"`) is what actually produces a distinct, named row — this is how other addons (Raider.IO, MDT, etc.) get their own clean section. `category` is *not* restricted to Blizzard's built-in values (`ADDONS`, `MOVEMENT`, ...) the way older documentation implies; an arbitrary string works and is used as the display label directly, no `BINDING_HEADER_*` needed. Don't reintroduce `header="..."` expecting it to visually separate a binding — verified not to work as of this client version.
+
+`Settings:CreateKeybindRow`/`SetInspectBinding` (`MountSenseSettings.lua`) let the player assign the "MountSense" keybind from inside the addon itself — click to capture the next key, right-click to clear — rather than sending them to Blizzard's own panel. Pattern (ignored-keys list, SHIFT-/CTRL-/ALT- prefixing, `SetBinding` + `SaveBindings(GetCurrentBindingSet())`) is adapted from the widely-used [PhanxConfig-KeyBinding](https://github.com/phanx-wow/PhanxConfig-KeyBinding) library rather than written from scratch. If MountSense ever grows a second keybind, generalize this into a reusable row factory (action name + label as params) instead of copy-pasting it.
 
 ### List matching model
 

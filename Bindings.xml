@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="MOUNTSENSE_INSPECT" category="MountSense">
+		MountSense_InspectKeybind()
+	</Binding>
+</Bindings>

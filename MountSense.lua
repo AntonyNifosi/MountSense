@@ -7,7 +7,7 @@ local addonName, addon = ...
 -- Expose globally so macros can use MountSense:...
 MountSense = addon
 
-addon.version = "1.2.3"
+addon.version = "1.3.0"
 addon.name    = "MountSense"
 
 -------------------------------------------------------------------------------
@@ -99,6 +99,9 @@ SlashCmdList["MountSense"] = function(msg)
     elseif msg == "minimap" then
         addon.Minimap:Toggle()
 
+    elseif msg == "inspect" then
+        addon.Inspect:Run()
+
     elseif msg == "debug" then
         addon:Print("--- MountSense Debug Info ---")
         addon:Print("Zone: " .. tostring(GetRealZoneText()))
@@ -149,6 +152,7 @@ SlashCmdList["MountSense"] = function(msg)
         addon:Print("  /ms summon — Summon a random mount from your lists")
         addon:Print("  /ms button — Toggle the summon button")
         addon:Print("  /ms minimap — Toggle the minimap icon")
+        addon:Print("  /ms inspect — Add your target/moused-over player's mount to a list")
         addon:Print("  /ms debug — Print debugging information in chat")
         addon:Print("  /ms outfitdebug — Print raw Transmog Outfit API data in chat")
 

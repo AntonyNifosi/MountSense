@@ -114,6 +114,178 @@ function Settings:Create(parent)
     rotateToggle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -346)
     rotateToggle:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -346)
     self.rotateToggle = rotateToggle
+
+    -- Separator
+    local sep3 = panel:CreateTexture(nil, "ARTWORK")
+    sep3:SetHeight(1)
+    sep3:SetPoint("TOPLEFT", 12, -414)
+    sep3:SetPoint("TOPRIGHT", -12, -414)
+    sep3:SetColorTexture(addon.UI.C.border[1], addon.UI.C.border[2],
+                         addon.UI.C.border[3], 0.5)
+
+    ---------------------------------------------------------------------------
+    -- Section: Keybinding
+    ---------------------------------------------------------------------------
+    local secKeybind = addon.UI:CreateSectionHeader(panel, "Keybinding")
+    secKeybind:SetPoint("TOPLEFT", 16, -430)
+
+    local keybindRow = self:CreateKeybindRow(panel)
+    keybindRow:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -458)
+    keybindRow:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -458)
+end
+
+-------------------------------------------------------------------------------
+-- Helper: the keybind row — a capture button that sets the "MOUNTSENSE_INSPECT"
+-- binding (declared in Bindings.xml) directly, the same way Blizzard's own
+-- Key Bindings UI would, without leaving the addon. Pattern (ignoreKeys list,
+-- modifier prefixing, SetBinding/SaveBindings) follows the widely-used
+-- PhanxConfig-KeyBinding library: https://github.com/phanx-wow/PhanxConfig-KeyBinding
+-------------------------------------------------------------------------------
+local INSPECT_BINDING_ACTION = "MOUNTSENSE_INSPECT"
+
+local IGNORE_KEYS = {
+    ["LeftButton"] = true, ["RightButton"] = true,
+    ["BUTTON1"] = true, ["BUTTON2"] = true,
+    ["LALT"] = true, ["LCTRL"] = true, ["LSHIFT"] = true,
+    ["RALT"] = true, ["RCTRL"] = true, ["RSHIFT"] = true,
+    ["UNKNOWN"] = true,
+}
+
+function Settings:CreateKeybindRow(parent)
+    local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    row:SetHeight(58)
+    row:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    row:SetBackdropColor(unpack(addon.UI.C.bgCard))
+    row:SetBackdropBorderColor(unpack(addon.UI.C.border))
+
+    local icon = row:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(32, 32)
+    icon:SetPoint("LEFT", 12, 0)
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Key_03")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    local titleText = row:CreateFontString(nil, "OVERLAY")
+    titleText:SetFont(addon.UI.FONT, 12, "")
+    titleText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, -6)
+    titleText:SetText("Inspect Mount Keybind")
+    titleText:SetTextColor(unpack(addon.UI.C.textBright))
+
+    local descText = row:CreateFontString(nil, "OVERLAY")
+    descText:SetFont(addon.UI.FONT, 9, "")
+    descText:SetPoint("TOPLEFT", titleText, "BOTTOMLEFT", 0, -3)
+    descText:SetPoint("RIGHT", row, "RIGHT", -160, 0)
+    descText:SetText("Add your target/moused-over player's mount to a list. Click to set a key, right-click to clear.")
+    descText:SetTextColor(unpack(addon.UI.C.textDim))
+    descText:SetJustifyH("LEFT")
+    descText:SetWordWrap(true)
+
+    local keyBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
+    keyBtn:SetSize(150, 26)
+    keyBtn:SetPoint("RIGHT", -12, 0)
+    keyBtn:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    keyBtn:SetBackdropColor(unpack(addon.UI.C.bgInput))
+    keyBtn:SetBackdropBorderColor(unpack(addon.UI.C.border))
+    keyBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+    local keyText = keyBtn:CreateFontString(nil, "OVERLAY")
+    keyText:SetFont(addon.UI.FONT, 11, "")
+    keyText:SetPoint("CENTER")
+    keyText:SetTextColor(unpack(addon.UI.C.text))
+    keyBtn.text = keyText
+    self.keyBtn = keyBtn
+
+    keyBtn:SetScript("OnClick", function(self, button)
+        if self.waitingForKey then return end
+
+        if button == "RightButton" then
+            Settings:SetInspectBinding(nil)
+            return
+        end
+
+        self.waitingForKey = true
+        self.text:SetText("Press a key...")
+        self:SetBackdropBorderColor(unpack(addon.UI.C.accent))
+        self:EnableKeyboard(true)
+        self:SetPropagateKeyboardInput(false)
+    end)
+
+    keyBtn:SetScript("OnKeyDown", function(self, key)
+        if not self.waitingForKey or IGNORE_KEYS[key] then return end
+
+        self.waitingForKey = nil
+        self:EnableKeyboard(false)
+        self:SetBackdropBorderColor(unpack(addon.UI.C.border))
+
+        if key == "ESCAPE" then
+            Settings:RefreshKeybindDisplay()
+            return
+        end
+
+        if key == "MiddleButton" then
+            key = "BUTTON3"
+        elseif key:match("^Button%d+$") then
+            key = key:upper()
+        end
+
+        if IsShiftKeyDown() then key = "SHIFT-" .. key end
+        if IsControlKeyDown() then key = "CTRL-" .. key end
+        if IsAltKeyDown() then key = "ALT-" .. key end
+
+        Settings:SetInspectBinding(key)
+    end)
+
+    keyBtn:SetScript("OnHide", function(self)
+        self.waitingForKey = nil
+        self:EnableKeyboard(false)
+    end)
+
+    keyBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Click to set a key")
+        GameTooltip:AddLine("Right-click to clear", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    keyBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    self:RefreshKeybindDisplay()
+
+    return row
+end
+
+-------------------------------------------------------------------------------
+-- Assign (or, if key is nil, clear) the MOUNTSENSE_INSPECT binding and save
+-- it to whichever binding set (account-wide vs this-character) is currently
+-- active — same call Blizzard's own Key Bindings UI makes on confirm.
+-------------------------------------------------------------------------------
+function Settings:SetInspectBinding(key)
+    local prev1, prev2 = GetBindingKey(INSPECT_BINDING_ACTION)
+    if prev1 then SetBinding(prev1) end
+    if prev2 then SetBinding(prev2) end
+
+    if key then
+        local conflictAction = GetBindingAction(key)
+        if conflictAction and conflictAction ~= "" and conflictAction ~= INSPECT_BINDING_ACTION then
+            addon:Print("That key was already bound elsewhere — it's now bound to MountSense instead.")
+        end
+        SetBinding(key, INSPECT_BINDING_ACTION)
+    end
+
+    SaveBindings(GetCurrentBindingSet())
+    self:RefreshKeybindDisplay()
+end
+
+function Settings:RefreshKeybindDisplay()
+    if not self.keyBtn then return end
+    local key = GetBindingKey(INSPECT_BINDING_ACTION)
+    self.keyBtn.text:SetText(key or "Not Bound")
 end
 
 -------------------------------------------------------------------------------
@@ -271,4 +443,6 @@ function Settings:Refresh()
     if self.rotateToggle then
         self.rotateToggle.toggle:SetEnabled(opts.previewRotation ~= false)
     end
+
+    self:RefreshKeybindDisplay()
 end

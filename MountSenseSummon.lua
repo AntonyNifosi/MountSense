@@ -133,13 +133,10 @@ function Summon:CreateButton()
         GameTooltip:Hide()
     end)
 
-    -- PreClick: pick a fresh random mount right before the click fires
+    -- Combat/mounted handling lives in SummonRandom() itself (dismounting is
+    -- allowed in combat, only summoning a new mount isn't) — don't gate here too.
     btn:SetScript("OnClick", function(self)
-        if not InCombatLockdown() then
-            Summon:SummonRandom()
-        else
-            addon:Print("Cannot summon while in combat!")
-        end
+        Summon:SummonRandom()
     end)
 
     self.button = btn
@@ -294,6 +291,13 @@ end
 -- Manual summon (slash command)
 -------------------------------------------------------------------------------
 function Summon:SummonRandom()
+    -- Dismounting isn't restricted in combat (only summoning a new mount is),
+    -- so always let this through first — same as clicking any mount button.
+    if IsMounted() then
+        Dismount()
+        return
+    end
+
     if InCombatLockdown() then
         addon:Print("Cannot summon while in combat!")
         return

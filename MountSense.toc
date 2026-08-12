@@ -1,8 +1,8 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: |cffFFB800MountSense|r
 ## Notes: Create custom mount lists with smart conditions. Summon random mounts based on your current context.
 ## Author: Antony Nifosi
-## Version: 1.2.2
+## Version: 1.2.3
 ## SavedVariables: MountSenseDB
 ## IconTexture: Interface\Icons\Ability_Mount_RidingHorse
 ## X-Curse-Project-ID: 1633590

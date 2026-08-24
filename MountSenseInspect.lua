@@ -2,7 +2,8 @@
 -- MountSense — Mount Inspector
 -- Keybind: check what mount your mouseover (or, failing that, your current
 -- target) is riding. If it's a mount you own, open a picker to add it to
--- one or more of your lists.
+-- one or more of your lists. If you don't own it, show how to obtain it
+-- instead.
 -------------------------------------------------------------------------------
 local addonName, addon = ...
 local Inspect = {}
@@ -84,12 +85,118 @@ function Inspect:Run()
 
     local data = addon.Data:GetMountData(mountID)
     if not data or not data.isCollected then
-        local mountName = (data and data.name) or C_MountJournal.GetMountInfoByID(mountID) or "That mount"
-        addon:Print("You don't own " .. mountName .. ".")
+        self:ShowSourceInfo(mountID, data)
         return
     end
 
     self:Open(mountID)
+end
+
+-------------------------------------------------------------------------------
+-- Popup: mount not owned — show how to obtain it (Data:BuildMountCache
+-- already stores `source` — the same "How to obtain" text the Mount
+-- Journal itself shows — for every mount, collected or not, so no extra
+-- API call is needed in the common case).
+-------------------------------------------------------------------------------
+function Inspect:CreateSourceInfoFrame()
+    if self.sourceFrame then return end
+
+    local f = CreateFrame("Frame", "MountSenseSourceInfo", UIParent, "BackdropTemplate")
+    f:SetSize(340, 220)
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("DIALOG")
+    f:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    f:SetBackdropColor(unpack(addon.UI.C.bg))
+    f:SetBackdropBorderColor(unpack(addon.UI.C.borderAccent))
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    f:Hide()
+    table.insert(UISpecialFrames, "MountSenseSourceInfo")
+    self.sourceFrame = f
+
+    local icon = f:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(30, 30)
+    icon:SetPoint("TOPLEFT", 14, -14)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    self.sourceIcon = icon
+
+    local title = f:CreateFontString(nil, "OVERLAY")
+    title:SetFont(addon.UI.FONT, 13, "")
+    title:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 0)
+    title:SetPoint("RIGHT", -34, 0)
+    title:SetJustifyH("LEFT")
+    title:SetText("You Don't Own This Mount")
+    title:SetTextColor(unpack(addon.UI.C.danger))
+
+    local mountNameText = f:CreateFontString(nil, "OVERLAY")
+    mountNameText:SetFont(addon.UI.FONT, 12, "")
+    mountNameText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
+    mountNameText:SetPoint("RIGHT", -34, 0)
+    mountNameText:SetJustifyH("LEFT")
+    mountNameText:SetTextColor(unpack(addon.UI.C.textBright))
+    self.sourceMountName = mountNameText
+
+    local closeBtn = CreateFrame("Button", nil, f)
+    closeBtn:SetSize(24, 24)
+    closeBtn:SetPoint("TOPRIGHT", -6, -6)
+    local closeText = closeBtn:CreateFontString(nil, "OVERLAY")
+    closeText:SetFont(addon.UI.FONT, 16, "")
+    closeText:SetPoint("CENTER", 0, 1)
+    closeText:SetText("×")
+    closeText:SetTextColor(unpack(addon.UI.C.textDim))
+    closeBtn:SetScript("OnEnter", function() closeText:SetTextColor(unpack(addon.UI.C.danger)) end)
+    closeBtn:SetScript("OnLeave", function() closeText:SetTextColor(unpack(addon.UI.C.textDim)) end)
+    closeBtn:SetScript("OnClick", function() Inspect.sourceFrame:Hide() end)
+
+    local sourceLabel = f:CreateFontString(nil, "OVERLAY")
+    sourceLabel:SetFont(addon.UI.FONT, 10, "")
+    sourceLabel:SetPoint("TOPLEFT", 14, -56)
+    sourceLabel:SetText("How to obtain:")
+    sourceLabel:SetTextColor(unpack(addon.UI.C.textDim))
+
+    local sourceText = f:CreateFontString(nil, "OVERLAY")
+    sourceText:SetFont(addon.UI.FONT, 11, "")
+    sourceText:SetPoint("TOPLEFT", sourceLabel, "BOTTOMLEFT", 0, -6)
+    sourceText:SetPoint("RIGHT", -14, 0)
+    sourceText:SetJustifyH("LEFT")
+    sourceText:SetWordWrap(true)
+    sourceText:SetTextColor(unpack(addon.UI.C.text))
+    self.sourceText = sourceText
+
+    local closeBtn2 = addon.UI:CreateButton(f, "Close", 90, 26)
+    closeBtn2:SetPoint("BOTTOM", 0, 12)
+    closeBtn2:SetScript("OnClick", function() f:Hide() end)
+end
+
+function Inspect:ShowSourceInfo(mountID, data)
+    if not self.sourceFrame then self:CreateSourceInfoFrame() end
+
+    -- Fall back to a live API query only when the mount wasn't in the cache
+    -- at all (e.g. a faction-hidden mount) — the common case is already
+    -- covered by `data`.
+    local name, _, icon = C_MountJournal.GetMountInfoByID(mountID)
+    local _, _, source = C_MountJournal.GetMountInfoExtraByID(mountID)
+
+    if data then
+        name = data.name or name
+        icon = data.icon or icon
+        if data.source and data.source ~= "" then
+            source = data.source
+        end
+    end
+
+    self.sourceIcon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+    self.sourceMountName:SetText(name or "Unknown Mount")
+    self.sourceText:SetText((source and source ~= "") and source or "No obtain information available for this mount.")
+
+    self.sourceFrame:Show()
 end
 
 -------------------------------------------------------------------------------

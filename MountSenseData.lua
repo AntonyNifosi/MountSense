@@ -133,11 +133,12 @@ Data.SOURCE_LABELS = {
 -- Context display data
 Data.CONTEXT_INFO = {
     { key = "openworld", label = "Open World",   icon = "Interface\\Icons\\INV_Misc_Map_01" },
+    { key = "resting",   label = "City",         icon = "Interface\\Icons\\INV_Misc_Map_02" },
     { key = "party",     label = "Dungeon",       icon = "Interface\\Icons\\INV_Helmet_03" },
     { key = "raid",      label = "Raid",          icon = "Interface\\Icons\\Achievement_Dungeon_ClassicDungeonMaster" },
     { key = "pvp",       label = "Battleground",  icon = "Interface\\Icons\\INV_BannerPVP_02" },
     { key = "arena",     label = "Arena",         icon = "Interface\\Icons\\Ability_Dualwield" },
-    { key = "scenario",  label = "Scenario",      icon = "Interface\\Icons\\INV_Misc_Map08" },
+    { key = "scenario",  label = "Delve",         icon = "Interface\\Icons\\INV_Misc_Map08" },
 }
 
 -------------------------------------------------------------------------------

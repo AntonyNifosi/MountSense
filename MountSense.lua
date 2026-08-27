@@ -7,7 +7,7 @@ local addonName, addon = ...
 -- Expose globally so macros can use MountSense:...
 MountSense = addon
 
-addon.version = "1.3.1"
+addon.version = "1.3.2"
 addon.name    = "MountSense"
 
 -------------------------------------------------------------------------------

@@ -12,12 +12,21 @@ addon.Conditions = Conditions
 function Conditions:GetCurrentContext()
     local inInstance, instanceType = IsInInstance()
 
-    if not inInstance or instanceType == "none" then
-        return "openworld"
+    -- instanceType: "party", "raid", "pvp", "arena", "scenario" (Delves are
+    -- classified as "scenario" by the game itself, confirmed via
+    -- C_Scenario.GetInfo() reporting "Delves" as the scenario name)
+    if inInstance and instanceType ~= "none" then
+        return instanceType
     end
 
-    -- instanceType: "party", "raid", "pvp", "arena", "scenario"
-    return instanceType
+    -- Resting only ever happens outside instances (cities, towns, inns) —
+    -- IsResting() is intentionally broader than just the two faction
+    -- capitals, matching the "City" label loosely rather than literally.
+    if IsResting() then
+        return "resting"
+    end
+
+    return "openworld"
 end
 
 function Conditions:CanFly()

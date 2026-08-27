@@ -194,7 +194,11 @@ function Data:BuildMountCache()
 
     local mountIDs = C_MountJournal.GetMountIDs()
     for _, mountID in ipairs(mountIDs) do
-        local name, spellID, icon, isActive, isUsable, sourceType, isFavorite,
+        -- isUsable is deliberately not captured here — it reflects whether
+        -- the mount can be summoned RIGHT NOW (zone, indoors, underwater,
+        -- etc.), not a fixed property, so it must be queried live wherever
+        -- it's actually needed rather than cached.
+        local name, spellID, icon, isActive, _, sourceType, isFavorite,
               isFactionSpecific, faction, shouldHideOnChar, isCollected, mID =
               C_MountJournal.GetMountInfoByID(mountID)
 
@@ -218,7 +222,6 @@ function Data:BuildMountCache()
                 description        = description,
                 source             = source,
                 isFavorite         = isFavorite,
-                isUsable           = isUsable,
                 family             = addon.ExternalData and addon.ExternalData.MountFamilies and addon.ExternalData.MountFamilies[mountID],
                 rarity             = rarityLib and rarityLib:GetRarityByID(mountID),
                 uiModelSceneID    = uiModelSceneID,
@@ -243,17 +246,92 @@ function Data:GetAllMounts()
 end
 
 -------------------------------------------------------------------------------
+-- "Usable" filtering
+--
+-- C_MountJournal.GetMountUsabilityByID returns whether a mount can be
+-- summoned RIGHT NOW, plus a localized reason when it can't. Confirmed
+-- in-game that those reasons split into two kinds:
+--   * environmental — depends only on where you're standing ("ground mounts
+--     aren't allowed here", "unusable here", ...). Standing indoors makes
+--     EVERY mount report one of these, which is why filtering on raw
+--     usability emptied the Browse tab whenever you organised lists inside
+--     a building.
+--   * permanent — faction / class / riding-skill restrictions that will
+--     never be satisfied on this character, plus "you don't own this mount".
+-- So a mount passes the filter when it's usable now OR its only blocker is
+-- environmental: "Usable" means "usable somewhere that allows mounting"
+-- rather than "usable on this exact spot". Summon:PickRandomMount
+-- deliberately does NOT use this — when actually summoning, only
+-- usable-right-now counts.
+--
+-- Matched against the global string constants rather than hardcoded text so
+-- it keeps working on non-English clients, and listed by NAME rather than by
+-- value so a constant missing on some client version is simply skipped
+-- instead of silently truncating the list (a nil in a table literal would
+-- cut ipairs short).
+-------------------------------------------------------------------------------
+local ENVIRONMENTAL_USE_ERROR_GLOBALS = {
+    "SPELL_FAILED_NOT_HERE",
+    "SPELL_FAILED_GROUND_MOUNT_NOT_ALLOWED",
+    "SPELL_FAILED_FLOATING_MOUNT_NOT_ALLOWED",
+    "SPELL_FAILED_NO_MOUNTS_ALLOWED",
+    "SPELL_FAILED_INCORRECT_AREA",
+    "SPELL_FAILED_ONLY_OUTDOORS",
+    "SPELL_FAILED_AFFECTING_COMBAT",
+    "SPELL_FAILED_NOT_WHILE_FATIGUED",
+    "SPELL_FAILED_NOT_WHILE_SHAPESHIFTED",
+}
+
+local environmentalUseErrors
+local function IsEnvironmentalUseError(useError)
+    if not useError then return false end
+    if not environmentalUseErrors then
+        environmentalUseErrors = {}
+        for _, globalName in ipairs(ENVIRONMENTAL_USE_ERROR_GLOBALS) do
+            local msg = _G[globalName]
+            if msg then environmentalUseErrors[msg] = true end
+        end
+    end
+    return environmentalUseErrors[useError] == true
+end
+
+--- Whether the mount is usable ignoring purely locational restrictions.
+function Data:IsMountUsableIgnoringLocation(mountID)
+    local isUsable, useError = C_MountJournal.GetMountUsabilityByID(mountID, false)
+    if isUsable then return true end
+    return IsEnvironmentalUseError(useError)
+end
+
+-------------------------------------------------------------------------------
 -- Filtered & Sorted mount retrieval
 -------------------------------------------------------------------------------
 function Data:GetFilteredMounts(searchText, typeFilters, sortBy, collectedOnly, usableOnly, sourceFilter, familyFilters, hideListID)
     local results = {}
-    
+
     local hideList = hideListID and self:GetList(hideListID) or nil
     local hiddenMounts = {}
     if hideList then
         for _, id in ipairs(hideList.mounts) do
             hiddenMounts[id] = true
         end
+    end
+
+    -- Last-resort guard: should some location produce a blocker the
+    -- environmental list above doesn't cover, every mount would drop out and
+    -- the tab would look broken. Detect that (you own mounts, yet none pass)
+    -- and let the filter through rather than showing an empty grid.
+    local blanketMountBlock = false
+    if usableOnly then
+        local collectedCount, usableCount = 0, 0
+        for _, data in pairs(self.mountCache) do
+            if data.isCollected then
+                collectedCount = collectedCount + 1
+                if self:IsMountUsableIgnoringLocation(data.mountID) then
+                    usableCount = usableCount + 1
+                end
+            end
+        end
+        blanketMountBlock = collectedCount > 0 and usableCount == 0
     end
 
     for _, data in pairs(self.mountCache) do
@@ -267,7 +345,8 @@ function Data:GetFilteredMounts(searchText, typeFilters, sortBy, collectedOnly, 
             include = false
         end
 
-        if include and usableOnly and not data.isUsable then
+        if include and usableOnly and not blanketMountBlock
+           and not self:IsMountUsableIgnoringLocation(data.mountID) then
             include = false
         end
 

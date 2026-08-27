@@ -79,6 +79,20 @@ Each list has `conditions = { contexts, specs, transmogOutfits }` (all arrays). 
 2. **Flyable** (`Conditions:CanFly()`) — prefers `FLYING` mounts in flyable zones, excludes them otherwise. Same logic as before, just now skipped when the aquatic filter already locked in.
 3. **Anti-repeat** — excludes mounts in `Summon.history`, an in-memory (not saved) FIFO of the last 3 **actually-summoned** mount IDs. Recording only happens in `SummonRandom()`, never in `PickRandomMount()` itself — the latter also runs on every passive context-change event (zone/spec/equipment change) just to refresh the button's "next mount" preview, and must not pollute history with mounts that were never actually ridden.
 
+### The Browse tab's "Usable" filter
+
+**Never cache mount usability, and never filter the Browse grid on raw usable-right-now.** `isUsable` (5th return of `C_MountJournal.GetMountInfoByID`) is a *live, location-dependent* value, not a property of the mount — standing indoors makes every single mount report unusable, so both caching it and filtering on it directly emptied the whole grid whenever the player organised lists inside a building. `Data:BuildMountCache` deliberately does not store it.
+
+`Data:IsMountUsableIgnoringLocation` is what the filter uses instead. It reads `C_MountJournal.GetMountUsabilityByID(mountID, false)`, whose second return is a **localized** reason string, and keeps the mount when it's usable now *or* when that reason is purely environmental. Verified in-game by dumping every distinct reason across a full collection; they fall into two groups:
+- environmental (ignore): `SPELL_FAILED_GROUND_MOUNT_NOT_ALLOWED`, `SPELL_FAILED_FLOATING_MOUNT_NOT_ALLOWED`, `SPELL_FAILED_NOT_HERE`, …
+- permanent (keep filtering): faction, class and riding-skill requirements, plus "you don't own this mount".
+
+Two things that look like nitpicks but aren't: the environmental set is built from **global constant names looked up in `_G`**, never from hardcoded English (the reason strings are localized) and never from a table literal of the constants themselves (a constant missing on some client version would leave a nil hole and silently truncate `ipairs`). A blanket-block guard still falls back to showing everything if some unlisted blocker ever hides the entire collection.
+
+`GetMountUsabilityByID`'s `checkIndoors` parameter is **not** an escape hatch for this — probed in-game, `true` and `false` both report every mount unusable while indoors.
+
+`Summon:PickRandomMount` intentionally keeps using live usable-right-now: when actually summoning, only the current spot matters.
+
 ### Mount categorization (GROUND/FLYING/AQUATIC/OTHER, family, rarity)
 
 Three independent, differently-sourced pieces of per-mount metadata get merged onto each `mountData` entry in `Data:BuildMountCache`:

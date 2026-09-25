@@ -7,7 +7,7 @@ local addonName, addon = ...
 -- Expose globally so macros can use MountSense:...
 MountSense = addon
 
-addon.version = "1.3.3"
+addon.version = "1.3.4"
 addon.name    = "MountSense"
 
 -------------------------------------------------------------------------------
@@ -22,6 +22,9 @@ eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 eventFrame:RegisterEvent("TRANSMOGRIFY_SUCCESS")
+eventFrame:RegisterEvent("NEW_MOUNT_ADDED")
+eventFrame:RegisterEvent("COMPANION_LEARNED")
+eventFrame:RegisterEvent("COMPANION_UNLEARNED")
 
 eventFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -51,6 +54,10 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         C_Timer.After(1, function()
             addon.Summon:UpdateMount()
         end)
+
+    elseif event == "NEW_MOUNT_ADDED" or event == "COMPANION_LEARNED"
+        or event == "COMPANION_UNLEARNED" then
+        addon:OnMountCollectionChanged()
     end
 end)
 
@@ -72,6 +79,32 @@ function addon:OnEnteringWorld()
     -- Rebuild cache (handles faction-specific mounts on character change)
     self.Data:BuildMountCache()
     self.Summon:UpdateMount()
+end
+
+-- The mount cache snapshots each mount's collected state, so without this a
+-- mount learned (or unlearned) mid-session stayed wrong until the next
+-- loading screen: not summonable from a list, filtered out as uncollected in
+-- Browse, and reported as "not owned" by the inspector. NEW_MOUNT_ADDED is
+-- the precise signal; COMPANION_LEARNED/UNLEARNED are what Blizzard's own
+-- Mount Journal refreshes on. They tend to fire together, so coalesce them
+-- into a single rebuild on the next frame. COMPANION_UPDATE is deliberately
+-- not used even though the Journal registers it too — it also fires on
+-- routine summon/dismiss, which would rebuild the whole cache every time
+-- you mount up.
+local mountCacheRefreshPending = false
+
+function addon:OnMountCollectionChanged()
+    if mountCacheRefreshPending then return end
+    mountCacheRefreshPending = true
+    C_Timer.After(0, function()
+        mountCacheRefreshPending = false
+        self.Data:BuildMountCache()
+        self.Summon:UpdateMount()
+        -- No-op until the UI has been built; otherwise refreshes the grid
+        -- even while hidden, since reopening the window on the same tab
+        -- (UI:Show) doesn't re-run it.
+        self.Browser:Refresh()
+    end)
 end
 
 -------------------------------------------------------------------------------
